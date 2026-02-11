@@ -3,11 +3,11 @@ using System.Configuration;
 
 namespace SftpTransferAgent.Common
 {
-    internal sealed class CommonSettingValues
+    public sealed class CommonSettingValues
     {
         // ポーリング
         public bool PollingEnabled { get; private set; }
-        public int PollingIntervalSec { get; private set; }
+        public int PollingIntervalMillSec { get; private set; }
 
         // リトライ
         public int RetryMaxCount { get; private set; }
@@ -45,7 +45,7 @@ namespace SftpTransferAgent.Common
             return new CommonSettingValues
             {
                 PollingEnabled = GetBool("PollingEnabled"),
-                PollingIntervalSec = GetInt("PollingIntervalSec"),
+                PollingIntervalMillSec = GetInt("PollingIntervalMillSec"),
 
                 RetryMaxCount = GetInt("RetryMaxCount"),
                 RetryIntervalMilliSec = GetInt("RetryIntervalMilliSec"),
