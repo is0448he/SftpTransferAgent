@@ -27,14 +27,8 @@ namespace SftpTransferAgent.Sftp
                 {
                     client.Connect();
 
-                    var root = client.ListDirectory("/");
-                    foreach (var f in root)
-                    {
-                        Logger.Info("ROOT: " + f.FullName);
-                    }
-
                     // GET（recv.zip）
-                    if (!TryDownloadRecvZip(client, settings))
+                    if (!TryDownloadRecvFile(client, settings))
                         return false;
 
                     // PUT（download.complete）
@@ -57,7 +51,7 @@ namespace SftpTransferAgent.Sftp
         /// <param name="client">接続済みSftpClient</param>
         /// <param name="settings">設定値</param>
         /// <returns>True:正常 / False:異常</returns>
-        private bool TryDownloadRecvZip(SftpClient client, CommonSettingValues settings)
+        private bool TryDownloadRecvFile(SftpClient client, CommonSettingValues settings)
         {
             try
             {
@@ -74,9 +68,13 @@ namespace SftpTransferAgent.Sftp
 
                 Logger.Info($"[SftpService] GET start. remote='{remoteZipPath}', local='{localZipPath}'");
 
-                DownloadToLocalAtomic(client, remoteZipPath, localZipPath);
+                this.GetRemoteFile(client, remoteZipPath, localZipPath);
 
                 Logger.Info($"[SftpService] GET success. local='{localZipPath}'");
+
+                // 成功したらリモートファイル削除
+                this.TryDeleteRemoteFile(client, remoteZipPath);
+
                 return true;
             }
             catch (Exception ex)
@@ -107,17 +105,137 @@ namespace SftpTransferAgent.Sftp
                     return true; // 処理なし＝正常
                 }
 
+                if (IsFileLockedForRead(localCompletePath))
+                {
+                    // ロックされていればリトライへ
+                    Logger.Warn($"[SftpService] PUT postponed (file locked). local='{localCompletePath}'");
+                    return false; // Controller側のリトライに乗せる
+                }
+
                 Logger.Info($"[SftpService] PUT start. local='{localCompletePath}', remote='{remoteCompletePath}'");
 
-                UploadFile(client, localCompletePath, remoteCompletePath);
+                this.PutLocalFile(client, localCompletePath, remoteCompletePath);
 
                 Logger.Info($"[SftpService] PUT success. remote='{remoteCompletePath}'");
+
+                // 成功したらローカルファイル削除
+                this.TryDeleteLocalFile(localCompletePath);
+
                 return true;
             }
             catch (Exception ex)
             {
                 Logger.Error("[SftpService] PUT failed.", ex);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// GET：ローカルにテンポラリで落としてから置換する（途中失敗で壊れたファイルが残らない）
+        /// </summary>
+        /// <param name="client">接続済みSftpClient</param>
+        /// <param name="remotePath">リモートファイルパス</param>
+        /// <param name="localPath">ローカル保存先パス</param>
+        private void GetRemoteFile(SftpClient client, string remotePath, string localPath)
+        {
+            var tempPath = localPath + ".tmp";
+
+            if (File.Exists(tempPath))
+                File.Delete(tempPath);
+
+            using (var fs = File.Open(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                client.DownloadFile(remotePath, fs);
+            }
+
+            if (File.Exists(localPath))
+                File.Delete(localPath);
+
+            File.Move(tempPath, localPath);
+        }
+
+        /// <summary>
+        /// PUT：ローカルファイルをリモートへアップロードする（上書き）
+        /// </summary>
+        /// <param name="client">接続済みSftpClient</param>
+        /// <param name="localPath">ローカルファイルパス</param>
+        /// <param name="remotePath">リモート保存先パス</param>
+        private void PutLocalFile(SftpClient client, string localPath, string remotePath)
+        {
+            if (!File.Exists(localPath))
+                throw new FileNotFoundException("Local file not found.", localPath);
+
+            using (var fs = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                client.UploadFile(fs, remotePath, true);
+            }
+        }
+
+        /// <summary>
+        /// リモートファイル削除（失敗しても false にはせずログに残す）
+        /// </summary>
+        /// /// <param name="client">接続済みSftpClient</param>
+        /// <param name="remotePath">設定値</param>
+        private void TryDeleteRemoteFile(SftpClient client, string remotePath)
+        {
+            try
+            {
+                if (client.Exists(remotePath))
+                {
+                    client.DeleteFile(remotePath);
+                    Logger.Info($"[SftpService] Remote file deleted. remote='{remotePath}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                // 「転送自体は成功している」ので致命扱いにしない（運用要件次第で厳格化可能）
+                Logger.Warn($"[SftpService] Remote file delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
+            }
+        }
+
+        /// <summary>
+        /// ローカルファイル削除（失敗しても false にはせずログに残す）
+        /// </summary>
+        /// <param name="localPath">設定値</param>
+        private void TryDeleteLocalFile(string localPath)
+        {
+            try
+            {
+                if (File.Exists(localPath))
+                {
+                    File.Delete(localPath);
+                    Logger.Info($"[SftpService] Local file deleted. local='{localPath}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[SftpService] Local file delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+            }
+        }
+
+        /// <summary>
+        /// ローカルファイルが「読み取り用に排他オープンできない」＝ロック中かどうかを判定する
+        /// </summary>
+        /// <param name="path">ファイルパス</param>
+        /// <returns>True:ロック中 / False:ロック中ではない</returns>
+        private bool IsFileLockedForRead(string path)
+        {
+            try
+            {
+                // 読み取りを排他で開けるかチェック（開けなければ誰かが掴んでる可能性が高い）
+                using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
+                {
+                    return false;
+                }
+            }
+            catch (IOException)
+            {
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // 権限や属性でも開けない場合があるのでログで気づけるように「ロック扱い」
+                return true;
             }
         }
 
@@ -186,47 +304,6 @@ namespace SftpTransferAgent.Sftp
                 {
                     Timeout = timeout
                 };
-            }
-        }
-
-        /// <summary>
-        /// GET：ローカルにテンポラリで落としてから置換する（途中失敗で壊れたファイルが残らない）
-        /// </summary>
-        /// <param name="client">接続済みSftpClient</param>
-        /// <param name="remotePath">リモートファイルパス</param>
-        /// <param name="localPath">ローカル保存先パス</param>
-        private void DownloadToLocalAtomic(SftpClient client, string remotePath, string localPath)
-        {
-            var tempPath = localPath + ".tmp";
-
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-
-            using (var fs = File.Open(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
-                client.DownloadFile(remotePath, fs);
-            }
-
-            if (File.Exists(localPath))
-                File.Delete(localPath);
-
-            File.Move(tempPath, localPath);
-        }
-
-        /// <summary>
-        /// PUT：ローカルファイルをリモートへアップロードする（上書き）
-        /// </summary>
-        /// <param name="client">接続済みSftpClient</param>
-        /// <param name="localPath">ローカルファイルパス</param>
-        /// <param name="remotePath">リモート保存先パス</param>
-        private void UploadFile(SftpClient client, string localPath, string remotePath)
-        {
-            if (!File.Exists(localPath))
-                throw new FileNotFoundException("Local file not found.", localPath);
-
-            using (var fs = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                client.UploadFile(fs, remotePath, true);
             }
         }
 
