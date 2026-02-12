@@ -45,7 +45,7 @@ namespace SftpTransferAgent
                         // システム停止要求があった場合、処理を終了する
                         if (this._onStopCalled == true)
                         {
-                            Logger.Warn($"Run SftpTransferAgent's while loop end.");
+                            Logger.Warn($"[SftpTransferAgent] Run SftpTransferAgent's while loop end.");
                             break;
                         }
 

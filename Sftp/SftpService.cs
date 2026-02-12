@@ -40,7 +40,7 @@ namespace SftpTransferAgent.Sftp
             }
             catch (Exception ex)
             {
-                Logger.Error("[SftpService] Execute failed.", ex);
+                Logger.Error("[SftpTransferAgent] Execute failed.", ex);
                 return false;
             }
         }
@@ -62,15 +62,15 @@ namespace SftpTransferAgent.Sftp
 
                 if (!client.Exists(remoteZipPath))
                 {
-                    Logger.Info($"[SftpService] GET skipped (remote not found). remote='{remoteZipPath}'");
+                    Logger.Info($"[SftpTransferAgent] GET skipped (remote not found). remote='{remoteZipPath}'");
                     return true; // 処理なし＝正常
                 }
 
-                Logger.Info($"[SftpService] GET start. remote='{remoteZipPath}', local='{localZipPath}'");
+                Logger.Info($"[SftpTransferAgent] GET start. remote='{remoteZipPath}', local='{localZipPath}'");
 
                 this.GetRemoteFile(client, remoteZipPath, localZipPath);
 
-                Logger.Info($"[SftpService] GET success. local='{localZipPath}'");
+                Logger.Info($"[SftpTransferAgent] GET success. local='{localZipPath}'");
 
                 // 成功したらリモートファイル削除
                 this.TryDeleteRemoteFile(client, remoteZipPath);
@@ -79,7 +79,7 @@ namespace SftpTransferAgent.Sftp
             }
             catch (Exception ex)
             {
-                Logger.Error("[SftpService] GET failed.", ex);
+                Logger.Error("[SftpTransferAgent] GET failed.", ex);
                 return false;
             }
         }
@@ -101,22 +101,22 @@ namespace SftpTransferAgent.Sftp
 
                 if (!File.Exists(localCompletePath))
                 {
-                    Logger.Info($"[SftpService] PUT skipped (local not found). local='{localCompletePath}'");
+                    Logger.Info($"[SftpTransferAgent] PUT skipped (local not found). local='{localCompletePath}'");
                     return true; // 処理なし＝正常
                 }
 
                 if (IsFileLockedForRead(localCompletePath))
                 {
                     // ロックされていればリトライへ
-                    Logger.Warn($"[SftpService] PUT postponed (file locked). local='{localCompletePath}'");
+                    Logger.Warn($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
                     return false; // Controller側のリトライに乗せる
                 }
 
-                Logger.Info($"[SftpService] PUT start. local='{localCompletePath}', remote='{remoteCompletePath}'");
+                Logger.Info($"[SftpTransferAgent] PUT start. local='{localCompletePath}', remote='{remoteCompletePath}'");
 
                 this.PutLocalFile(client, localCompletePath, remoteCompletePath);
 
-                Logger.Info($"[SftpService] PUT success. remote='{remoteCompletePath}'");
+                Logger.Info($"[SftpTransferAgent] PUT success. remote='{remoteCompletePath}'");
 
                 // 成功したらローカルファイル削除
                 this.TryDeleteLocalFile(localCompletePath);
@@ -125,7 +125,7 @@ namespace SftpTransferAgent.Sftp
             }
             catch (Exception ex)
             {
-                Logger.Error("[SftpService] PUT failed.", ex);
+                Logger.Error("[SftpTransferAgent] PUT failed.", ex);
                 return false;
             }
         }
@@ -183,13 +183,13 @@ namespace SftpTransferAgent.Sftp
                 if (client.Exists(remotePath))
                 {
                     client.DeleteFile(remotePath);
-                    Logger.Info($"[SftpService] Remote file deleted. remote='{remotePath}'");
+                    Logger.Info($"[SftpTransferAgent] RemoteFile deleted. remote='{remotePath}'");
                 }
             }
             catch (Exception ex)
             {
                 // 「転送自体は成功している」ので致命扱いにしない（運用要件次第で厳格化可能）
-                Logger.Warn($"[SftpService] Remote file delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
+                Logger.Warn($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
             }
         }
 
@@ -204,12 +204,12 @@ namespace SftpTransferAgent.Sftp
                 if (File.Exists(localPath))
                 {
                     File.Delete(localPath);
-                    Logger.Info($"[SftpService] Local file deleted. local='{localPath}'");
+                    Logger.Info($"[SftpTransferAgent] LocalFile deleted. local='{localPath}'");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SftpService] Local file delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+                Logger.Warn($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
             }
         }
 
@@ -257,7 +257,7 @@ namespace SftpTransferAgent.Sftp
             // ホストキー検証（現状は設定で持っていないので許可。将来ピン止め推奨）
             client.HostKeyReceived += (s, e) =>
             {
-                Logger.Warn("[SftpService] HostKeyReceived (NOT validated; consider pinning).");
+                Logger.Warn("[SftpTransferAgent] HostKeyReceived (NOT validated; consider pinning).");
                 e.CanTrust = true;
             };
 
