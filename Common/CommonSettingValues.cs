@@ -5,38 +5,112 @@ namespace SftpTransferAgent.Common
 {
     public sealed class CommonSettingValues
     {
-        // ポーリング
+        #region ポーリング制御
+        /// <summary>
+        /// ポーリング実行可否
+        /// - true : 指定間隔で処理を繰り返す（常駐ポーリング）
+        /// - false: 1回のみ実行して終了
+        /// App.config: PollingEnabled
+        /// </summary>
         public bool PollingEnabled { get; private set; }
+        /// <summary>
+        /// ポーリング間隔（ミリ秒）
+        /// </summary>
         public int PollingIntervalMillSec { get; private set; }
+        #endregion
 
-        // リトライ
+        #region リトライ
+        /// <summary>
+        /// リトライ最大回数
+        /// </summary>
         public int RetryMaxCount { get; private set; }
+        /// <summary>
+        /// リトライ間隔（ミリ秒）
+        /// </summary>
         public int RetryIntervalMilliSec { get; private set; }
+        #endregion
 
-        // ディレクトリ
+        #region ディレクトリ
+        /// <summary>
+        /// SFTP受信ディレクトリ（リモート）
+        /// - リモートサーバ上の受信対象ファイル配置先
+        /// </summary>
         public string RecvRemoteDir { get; private set; }
+        /// <summary>
+        /// SFTP送信ディレクトリ（リモート）
+        /// - リモートサーバ上の送信先ディレクトリ
+        /// </summary>
         public string SendRemoteDir { get; private set; }
+        /// <summary>
+        /// 【7】受信ローカルディレクトリ
+        /// - GET（ダウンロード）したファイルの保存先
+        /// </summary>
         public string RecvLocalDir { get; private set; }
+        /// <summary>
+        /// 送信ローカルディレクトリ
+        /// - PUT（アップロード）対象ファイルの配置先
+        /// </summary>
         public string SendLocalDir { get; private set; }
+        #endregion
 
-        // 認証
+        #region 認証
+        /// <summary>
+        /// 認証方式
+        /// - Password : パスワード認証
+        /// - PrivateKey : 鍵認証
+        /// </summary>
         public string AuthType { get; private set; }
+        /// <summary>
+        /// 秘密鍵ファイルパス
+        /// </summary>
         public string PrivateKeyPath { get; private set; }
+        #endregion
 
-        // SFTP接続
+        #region SFTP接続
+        /// <summary>
+        /// SFTPホスト名
+        /// </summary>
         public string SftpHostName { get; private set; }
+        /// <summary>
+        /// SFTPポート番号
+        /// </summary>
         public int SftpPort { get; private set; }
+        /// <summary>
+        /// SFTPユーザ名
+        /// </summary>
         public string SftpUserName { get; private set; }
+        /// <summary>
+        /// SFTPパスワード
+        /// </summary>
         public string SftpPass { get; private set; }
+        /// <summary>
+        /// 接続タイムアウト（秒）
+        /// </summary>
         public int SftpConnectTimeoutSec { get; private set; }
+        /// <summary>
+        /// 転送タイムアウト（秒）
+        /// </summary>
         public int SftpTransferTimeoutSec { get; private set; }
+        #endregion
 
-        // ファイル名
+        #region ファイル名
+        /// <summary>
+        /// 受信対象ZIPファイル名
+        /// </summary>
         public string RecvZipFileName { get; private set; }
+        /// <summary>
+        /// 完了ファイル名
+        /// </summary>
         public string CompleteFileName { get; private set; }
+        #endregion
 
-        // ログ
+        #region ログ
+        /// <summary>
+        /// ログレベル
+        /// - Logger 側で解釈して出力レベルを制御する
+        /// </summary>
         public string LogLevel { get; private set; }
+        #endregion
 
         private CommonSettingValues() { }
 
