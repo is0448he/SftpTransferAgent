@@ -1,10 +1,7 @@
 ﻿using Renci.SshNet;
 using SftpTransferAgent.Common;
-using SftpTransferAgent.Sftp;
 using System;
-using System.Diagnostics.Eventing.Reader;
 using System.IO;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace SftpTransferAgent.Sftp
 {
