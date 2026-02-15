@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Configuration;
+using System.Diagnostics.Eventing.Reader;
+using System.Security.Cryptography;
 
 namespace SftpTransferAgent.Common
 {
@@ -116,6 +118,8 @@ namespace SftpTransferAgent.Common
 
         public static CommonSettingValues Load()
         {
+            var authType = GetString("AuthType");
+
             return new CommonSettingValues
             {
                 PollingEnabled = GetBool("PollingEnabled"),
@@ -129,13 +133,13 @@ namespace SftpTransferAgent.Common
                 RecvLocalDir = GetString("RecvLocalDir"),
                 SendLocalDir = GetString("SendLocalDir"),
 
-                AuthType = GetString("AuthType"),
+                AuthType = authType,
                 PrivateKeyPath = GetString("PrivateKeyPath"),
 
                 SftpHostName = GetString("SftpHostName"),
                 SftpPort = GetInt("SftpPort"),
                 SftpUserName = GetString("SftpUserName"),
-                SftpPass = GetString("SftpPass"),
+                SftpPass = ResolveSftpPass(authType),
                 SftpConnectTimeoutSec = GetInt("SftpConnectTimeoutSec"),
                 SftpTransferTimeoutSec = GetInt("SftpTransferTimeoutSec"),
 
@@ -146,7 +150,38 @@ namespace SftpTransferAgent.Common
             };
         }
 
-        #region helper
+        /// <summary>
+        /// SftpPassEnc があれば復号して採用、なければ SftpPass（平文）を採用する
+        /// </summary>
+        private static string ResolveSftpPass(string authType)
+        {
+            var enc = ConfigurationManager.AppSettings["SftpPassEnc"];
+            if (!string.IsNullOrWhiteSpace(enc))
+            {
+                try
+                {
+                    // CryptoUtility/PowerShellと合わせて LocalMachine 固定
+                    return CryptoUtility.DecryptFromBase64(enc, DataProtectionScope.LocalMachine);
+                }
+                catch (Exception ex)
+                {
+                    throw new ConfigurationErrorsException("App.config key 'SftpPassEnc' cannot be decrypted.", ex);
+                }
+            }
+
+            var plain = ConfigurationManager.AppSettings["SftpPass"] ?? string.Empty;
+
+            // Password 認証時だけ必須チェック（PrivateKeyなら空でもOK）
+            if (string.Equals(authType, "Password", StringComparison.OrdinalIgnoreCase) &&
+                string.IsNullOrWhiteSpace(plain))
+            {
+                throw new ConfigurationErrorsException("SftpPass is required for Password auth. Set SftpPassEnc or SftpPass.");
+            }
+
+            return plain;
+        }
+
+        #region Helper
 
         private static string GetString(string key)
         {
