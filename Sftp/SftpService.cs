@@ -1,7 +1,10 @@
-﻿using SftpTransferAgent.Common;
-using Renci.SshNet;
+﻿using Renci.SshNet;
+using SftpTransferAgent.Common;
+using SftpTransferAgent.Sftp;
 using System;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement.StartPanel;
 
 namespace SftpTransferAgent.Sftp
 {
@@ -21,6 +24,9 @@ namespace SftpTransferAgent.Sftp
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));
 
+            var recvPram = CreateRecvPram(settings);
+            var sendPram = CreateSendPram(settings);
+
             try
             {
                 using (var client = CreateSftpClient(settings))
@@ -28,11 +34,11 @@ namespace SftpTransferAgent.Sftp
                     client.Connect();
 
                     // GET（recv.zip）
-                    if (!TryDownloadRecvFile(client, settings))
+                    if (!TryDownloadRecvFile(client, recvPram))
                         return false;
 
                     // PUT（download.complete）
-                    if (!TryUploadCompleteFile(client, settings))
+                    if (!TryUploadCompleteFile(client, sendPram))
                         return false;
 
                     return true;
@@ -45,20 +51,45 @@ namespace SftpTransferAgent.Sftp
             }
         }
 
+        #region GET
+        /// <summary>
+        /// GET：リモートに recv.zip が存在する場合にローカルへダウンロードする
+        /// 設定値からGET（受信）処理用パラメータを生成する。
+        /// </summary>
+        /// <param name="settings">設定値。</param>
+        /// <returns>受信処理用パラメータ。</returns>
+        private SftpRecvPram CreateRecvPram(CommonSettingValues settings)
+        {
+            return new SftpRecvPram
+            {
+                HostName = settings.SftpHostName,
+                PortNo = settings.SftpPort,
+                UserName = settings.SftpUserName,
+                Password = settings.SftpPass,
+                AuthType = settings.AuthType,
+                PrivateKeyPath = settings.PrivateKeyPath,
+                SftpConnectTimeoutSec = settings.SftpConnectTimeoutSec,
+                SftpTransferTimeoutSec = settings.SftpTransferTimeoutSec,
+                RecvRemoteDir = settings.RecvRemoteDir,
+                RecvLocalDir = settings.RecvLocalDir,
+                RecvTargetFileName = settings.RecvZipFileName
+            };
+        }
+
         /// <summary>
         /// GET：リモートに recv.zip が存在する場合にローカルへダウンロードする
         /// </summary>
         /// <param name="client">接続済みSftpClient</param>
         /// <param name="settings">設定値</param>
         /// <returns>True:正常 / False:異常</returns>
-        private bool TryDownloadRecvFile(SftpClient client, CommonSettingValues settings)
+        private bool TryDownloadRecvFile(SftpClient client, SftpRecvPram recvPram)
         {
             try
             {
-                EnsureLocalDirectory(settings.RecvLocalDir);
+                this.EnsureLocalDirectory(recvPram.RecvLocalDir);
 
-                var remoteZipPath = CombineRemotePath(settings.RecvRemoteDir, settings.RecvZipFileName);
-                var localZipPath = Path.Combine(settings.RecvLocalDir, settings.RecvZipFileName);
+                var remoteZipPath = CombineRemotePath(recvPram.RecvRemoteDir, recvPram.RecvTargetFileName);
+                var localZipPath = Path.Combine(recvPram.RecvLocalDir, recvPram.RecvTargetFileName);
 
                 if (!client.Exists(remoteZipPath))
                 {
@@ -80,52 +111,6 @@ namespace SftpTransferAgent.Sftp
             catch (Exception ex)
             {
                 Logger.Error("[SftpTransferAgent] GET failed.", ex);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// PUT：ローカルに download.complete が存在する場合にリモートへアップロードする
-        /// </summary>
-        /// <param name="client">接続済みSftpClient</param>
-        /// <param name="settings">設定値</param>
-        /// <returns>True:正常 / False:異常</returns>
-        private bool TryUploadCompleteFile(SftpClient client, CommonSettingValues settings)
-        {
-            try
-            {
-                EnsureLocalDirectory(settings.SendLocalDir);
-
-                var localCompletePath = Path.Combine(settings.SendLocalDir, settings.CompleteFileName);
-                var remoteCompletePath = CombineRemotePath(settings.SendRemoteDir, settings.CompleteFileName);
-
-                if (!File.Exists(localCompletePath))
-                {
-                    Logger.Info($"[SftpTransferAgent] PUT skipped (local not found). local='{localCompletePath}'");
-                    return true; // 処理なし＝正常
-                }
-
-                if (IsFileLockedForRead(localCompletePath))
-                {
-                    // ロックされていればリトライへ
-                    Logger.Warn($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
-                    return false; // Controller側のリトライに乗せる
-                }
-
-                Logger.Info($"[SftpTransferAgent] PUT start. local='{localCompletePath}', remote='{remoteCompletePath}'");
-
-                this.PutLocalFile(client, localCompletePath, remoteCompletePath);
-
-                Logger.Info($"[SftpTransferAgent] PUT success. remote='{remoteCompletePath}'");
-
-                // 成功したらローカルファイル削除
-                this.TryDeleteLocalFile(localCompletePath);
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error("[SftpTransferAgent] PUT failed.", ex);
                 return false;
             }
         }
@@ -155,23 +140,6 @@ namespace SftpTransferAgent.Sftp
         }
 
         /// <summary>
-        /// PUT：ローカルファイルをリモートへアップロードする（上書き）
-        /// </summary>
-        /// <param name="client">接続済みSftpClient</param>
-        /// <param name="localPath">ローカルファイルパス</param>
-        /// <param name="remotePath">リモート保存先パス</param>
-        private void PutLocalFile(SftpClient client, string localPath, string remotePath)
-        {
-            if (!File.Exists(localPath))
-                throw new FileNotFoundException("Local file not found.", localPath);
-
-            using (var fs = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                client.UploadFile(fs, remotePath, true);
-            }
-        }
-
-        /// <summary>
         /// リモートファイル削除（失敗しても false にはせずログに残す）
         /// </summary>
         /// /// <param name="client">接続済みSftpClient</param>
@@ -188,28 +156,79 @@ namespace SftpTransferAgent.Sftp
             }
             catch (Exception ex)
             {
-                // 「転送自体は成功している」ので致命扱いにしない（運用要件次第で厳格化可能）
+                // 「転送自体は成功している」ので致命扱いにしない
                 Logger.Warn($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
             }
         }
+        #endregion
+
+        #region PUT
+        /// <summary>
+        /// 設定値からPUT（送信）処理用パラメータを生成する。
+        /// </summary>
+        /// <param name="settings">設定値。</param>
+        /// <returns>送信処理用パラメータ。</returns>
+        private SftpSendPram CreateSendPram(CommonSettingValues settings)
+        {
+            return new SftpSendPram
+            {
+                HostName = settings.SftpHostName,
+                PortNo = settings.SftpPort,
+                UserName = settings.SftpUserName,
+                Password = settings.SftpPass,
+                AuthType = settings.AuthType,
+                PrivateKeyPath = settings.PrivateKeyPath,
+                SftpConnectTimeoutSec = settings.SftpConnectTimeoutSec,
+                SftpTransferTimeoutSec = settings.SftpTransferTimeoutSec,
+                SendRemoteDir = settings.SendRemoteDir,
+                SendLocalDir = settings.SendLocalDir,
+                SendTargetFileName = settings.CompleteFileName
+            };
+        }
 
         /// <summary>
-        /// ローカルファイル削除（失敗しても false にはせずログに残す）
+        /// PUT：ローカルに download.complete が存在する場合にリモートへアップロードする
         /// </summary>
-        /// <param name="localPath">設定値</param>
-        private void TryDeleteLocalFile(string localPath)
+        /// <param name="client">接続済みSftpClient</param>
+        /// <param name="settings">設定値</param>
+        /// <returns>True:正常 / False:異常</returns>
+        private bool TryUploadCompleteFile(SftpClient client, SftpSendPram sendPram)
         {
             try
             {
-                if (File.Exists(localPath))
+                this.EnsureLocalDirectory(sendPram.SendLocalDir);
+
+                var localCompletePath = Path.Combine(sendPram.SendLocalDir, sendPram.SendTargetFileName);
+                var remoteCompletePath = CombineRemotePath(sendPram.SendRemoteDir, sendPram.SendTargetFileName);
+
+                if (!File.Exists(localCompletePath))
                 {
-                    File.Delete(localPath);
-                    Logger.Info($"[SftpTransferAgent] LocalFile deleted. local='{localPath}'");
+                    Logger.Info($"[SftpTransferAgent] PUT skipped (local not found). local='{localCompletePath}'");
+                    return true; // 処理なし＝正常
                 }
+
+                if (this.IsFileLockedForRead(localCompletePath))
+                {
+                    // ロックされていればリトライへ
+                    Logger.Warn($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
+                    return false; // Controller側のリトライに乗せる
+                }
+
+                Logger.Info($"[SftpTransferAgent] PUT start. local='{localCompletePath}', remote='{remoteCompletePath}'");
+
+                this.PutLocalFile(client, localCompletePath, remoteCompletePath);
+
+                Logger.Info($"[SftpTransferAgent] PUT success. remote='{remoteCompletePath}'");
+
+                // 成功したらローカルファイル削除
+                this.TryDeleteLocalFile(localCompletePath);
+
+                return true;
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+                Logger.Error("[SftpTransferAgent] PUT failed.", ex);
+                return false;
             }
         }
 
@@ -240,13 +259,51 @@ namespace SftpTransferAgent.Sftp
         }
 
         /// <summary>
+        /// PUT：ローカルファイルをリモートへアップロードする（上書き）
+        /// </summary>
+        /// <param name="client">接続済みSftpClient</param>
+        /// <param name="localPath">ローカルファイルパス</param>
+        /// <param name="remotePath">リモート保存先パス</param>
+        private void PutLocalFile(SftpClient client, string localPath, string remotePath)
+        {
+            if (!File.Exists(localPath))
+                throw new FileNotFoundException("Local file not found.", localPath);
+
+            using (var fs = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                client.UploadFile(fs, remotePath, true);
+            }
+        }
+
+        /// <summary>
+        /// ローカルファイル削除（失敗しても false にはせずログに残す）
+        /// </summary>
+        /// <param name="localPath">設定値</param>
+        private void TryDeleteLocalFile(string localPath)
+        {
+            try
+            {
+                if (File.Exists(localPath))
+                {
+                    File.Delete(localPath);
+                    Logger.Info($"[SftpTransferAgent] LocalFile deleted. local='{localPath}'");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+            }
+        }
+        #endregion
+
+        /// <summary>
         /// SftpClient を生成する（認証方式・タイムアウト等を設定）
         /// </summary>
         /// <param name="settings">設定値</param>
         /// <returns>SftpClient</returns>
         private SftpClient CreateSftpClient(CommonSettingValues settings)
         {
-            var connectionInfo = BuildConnectionInfo(settings);
+            var connectionInfo = this.BuildConnectionInfo(settings);
 
             var client = new SftpClient(connectionInfo)
             {
