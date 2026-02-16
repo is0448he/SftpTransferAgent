@@ -115,21 +115,18 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// GET：ローカルにテンポラリで落としてから置換する（途中失敗で壊れたファイルが残らない）
         /// </summary>
-        /// <param name="client">接続済みSftpClient</param>
-        /// <param name="remotePath">リモートファイルパス</param>
-        /// <param name="localPath">ローカル保存先パス</param>
         private void GetRemoteFile(SftpClient client, string remotePath, string localPath)
         {
             var tempPath = localPath + ".tmp";
 
-            if (File.Exists(tempPath))
-                File.Delete(tempPath);
-
-            using (var fs = File.Open(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            // Create: 既存があれば上書き（長さ0にする）
+            using (var fs = File.Open(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
             {
                 client.DownloadFile(remotePath, fs);
+                fs.Flush(true); // 念のため（ディスクにフラッシュ）
             }
 
+            // 置換（既存を消してからmove）
             if (File.Exists(localPath))
                 File.Delete(localPath);
 
