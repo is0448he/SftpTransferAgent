@@ -1,12 +1,19 @@
 ﻿using System;
 using System.Configuration;
-using System.Diagnostics.Eventing.Reader;
 using System.Security.Cryptography;
 
 namespace SftpTransferAgent.Common
 {
     public sealed class CommonSettingValues
     {
+        // 1回だけ読み込み（スレッドセーフ）
+        private static readonly Lazy<CommonSettingValues> _current =
+            new Lazy<CommonSettingValues>(LoadCore, isThreadSafe: true);
+
+        /// <summary>設定値（キャッシュ）</summary>
+        public static CommonSettingValues Current => _current.Value;
+
+        #region プロパティ定義
         #region ポーリング制御
         /// <summary>
         /// ポーリング実行可否
@@ -114,9 +121,11 @@ namespace SftpTransferAgent.Common
         public string LogLevel { get; private set; }
         #endregion
 
+        #endregion
+
         private CommonSettingValues() { }
 
-        public static CommonSettingValues Load()
+        private static CommonSettingValues LoadCore()
         {
             var authType = GetString("AuthType");
 

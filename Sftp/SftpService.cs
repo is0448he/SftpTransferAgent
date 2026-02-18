@@ -10,32 +10,48 @@ namespace SftpTransferAgent.Sftp
     /// </summary>
     public class SftpService
     {
+        private readonly SftpConnectionPram _connectionPram;
+        private readonly SftpRecvPram _recvPram;
+        private readonly SftpSendPram _sendPram;
+
+        /// <summary>
+        /// コンストラクタ
+        /// </summary>
+        public SftpService()
+        {
+            try
+            {
+                _connectionPram = CreateConnectionPram();
+                _recvPram = CreateRecvPram();
+                _sendPram = CreateSendPram();
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[SftpTransferAgent] 設定ファイルからのパラメータ取得に失敗しました。", ex);
+                throw;
+            }
+        }
+
         /// <summary>
         /// ファイル送受信処理を実行する（1回分）
         /// - GET: リモート(RecvRemoteDir/RecvZipFileName) -> ローカル(RecvLocalDir/RecvZipFileName)
         /// - PUT: ローカル(SendLocalDir/CompleteFileName) -> リモート(SendRemoteDir/CompleteFileName)
         /// </summary>
-        /// <param name="settings">設定値</param>
         /// <returns>True:正常 / False:異常（Controller側でリトライ対象）</returns>
-        public bool Execute(CommonSettingValues settings)
+        public bool Execute()
         {
-            if (settings == null) throw new ArgumentNullException(nameof(settings));
-
-            var recvPram = CreateRecvPram(settings);
-            var sendPram = CreateSendPram(settings);
-
             try
             {
-                using (var client = CreateSftpClient(settings))
+                using (var client = CreateSftpClient(_connectionPram))
                 {
                     client.Connect();
 
                     // GET（recv.zip）
-                    if (!TryDownloadRecvFile(client, recvPram))
+                    if (!TryDownloadRecvFile(client, _recvPram))
                         return false;
 
                     // PUT（download.complete）
-                    if (!TryUploadCompleteFile(client, sendPram))
+                    if (!TryUploadCompleteFile(client, _sendPram))
                         return false;
 
                     return true;
@@ -48,31 +64,72 @@ namespace SftpTransferAgent.Sftp
             }
         }
 
-        #region GET
+        #region CreatePram
         /// <summary>
-        /// GET：リモートに recv.zip が存在する場合にローカルへダウンロードする
-        /// 設定値からGET（受信）処理用パラメータを生成する。
+        /// 設定値から接続情報パラメータを生成する
         /// </summary>
-        /// <param name="settings">設定値。</param>
-        /// <returns>受信処理用パラメータ。</returns>
-        private SftpRecvPram CreateRecvPram(CommonSettingValues settings)
+        /// <returns>受信処理用パラメータ</returns>
+        private SftpConnectionPram CreateConnectionPram()
         {
-            return new SftpRecvPram
+            return new SftpConnectionPram
             {
-                HostName = settings.SftpHostName,
-                PortNo = settings.SftpPort,
-                UserName = settings.SftpUserName,
-                Password = settings.SftpPass,
-                AuthType = settings.AuthType,
-                PrivateKeyPath = settings.PrivateKeyPath,
-                SftpConnectTimeoutSec = settings.SftpConnectTimeoutSec,
-                SftpTransferTimeoutSec = settings.SftpTransferTimeoutSec,
-                RecvRemoteDir = settings.RecvRemoteDir,
-                RecvLocalDir = settings.RecvLocalDir,
-                RecvTargetFileName = settings.RecvZipFileName
+                HostName = CommonSettingValues.Current.SftpHostName,
+                PortNo = CommonSettingValues.Current.SftpPort,
+                UserName = CommonSettingValues.Current.SftpUserName,
+                Password = CommonSettingValues.Current.SftpPass,
+                AuthType = CommonSettingValues.Current.AuthType,
+                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
+                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
+                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec
             };
         }
 
+        /// <summary>
+        /// 設定値からGET（受信）処理用パラメータを生成する。
+        /// </summary>
+        /// <returns>受信処理用パラメータ</returns>
+        private SftpRecvPram CreateRecvPram()
+        {
+            return new SftpRecvPram
+            {
+                HostName = CommonSettingValues.Current.SftpHostName,
+                PortNo = CommonSettingValues.Current.SftpPort,
+                UserName = CommonSettingValues.Current.SftpUserName,
+                Password = CommonSettingValues.Current.SftpPass,
+                AuthType = CommonSettingValues.Current.AuthType,
+                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
+                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
+                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec,
+                RecvRemoteDir = CommonSettingValues.Current.RecvRemoteDir,
+                RecvLocalDir = CommonSettingValues.Current.RecvLocalDir,
+                RecvTargetFileName = CommonSettingValues.Current.RecvZipFileName
+            };
+        }
+
+        /// <summary>
+        /// 設定値からPUT（送信）処理用パラメータを生成する。
+        /// </summary>
+        /// <returns>送信処理用パラメータ</returns>
+        private SftpSendPram CreateSendPram()
+        {
+            return new SftpSendPram
+            {
+                HostName = CommonSettingValues.Current.SftpHostName,
+                PortNo = CommonSettingValues.Current.SftpPort,
+                UserName = CommonSettingValues.Current.SftpUserName,
+                Password = CommonSettingValues.Current.SftpPass,
+                AuthType = CommonSettingValues.Current.AuthType,
+                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
+                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
+                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec,
+                SendRemoteDir = CommonSettingValues.Current.SendRemoteDir,
+                SendLocalDir = CommonSettingValues.Current.SendLocalDir,
+                SendTargetFileName = CommonSettingValues.Current.CompleteFileName
+            };
+        }
+        #endregion
+
+        #region GET
         /// <summary>
         /// GET：リモートに recv.zip が存在する場合にローカルへダウンロードする
         /// </summary>
@@ -157,29 +214,6 @@ namespace SftpTransferAgent.Sftp
         #endregion
 
         #region PUT
-        /// <summary>
-        /// 設定値からPUT（送信）処理用パラメータを生成する。
-        /// </summary>
-        /// <param name="settings">設定値。</param>
-        /// <returns>送信処理用パラメータ。</returns>
-        private SftpSendPram CreateSendPram(CommonSettingValues settings)
-        {
-            return new SftpSendPram
-            {
-                HostName = settings.SftpHostName,
-                PortNo = settings.SftpPort,
-                UserName = settings.SftpUserName,
-                Password = settings.SftpPass,
-                AuthType = settings.AuthType,
-                PrivateKeyPath = settings.PrivateKeyPath,
-                SftpConnectTimeoutSec = settings.SftpConnectTimeoutSec,
-                SftpTransferTimeoutSec = settings.SftpTransferTimeoutSec,
-                SendRemoteDir = settings.SendRemoteDir,
-                SendLocalDir = settings.SendLocalDir,
-                SendTargetFileName = settings.CompleteFileName
-            };
-        }
-
         /// <summary>
         /// PUT：ローカルに download.complete が存在する場合にリモートへアップロードする
         /// </summary>
@@ -295,13 +329,13 @@ namespace SftpTransferAgent.Sftp
         /// </summary>
         /// <param name="settings">設定値</param>
         /// <returns>SftpClient</returns>
-        private SftpClient CreateSftpClient(CommonSettingValues settings)
+        private SftpClient CreateSftpClient(SftpConnectionPram connectionPram)
         {
-            var connectionInfo = this.BuildConnectionInfo(settings);
+            var connectionInfo = this.BuildConnectionInfo(connectionPram);
 
             var client = new SftpClient(connectionInfo)
             {
-                OperationTimeout = TimeSpan.FromSeconds(Math.Max(1, settings.SftpTransferTimeoutSec)),
+                OperationTimeout = TimeSpan.FromSeconds(Math.Max(1, connectionPram.SftpTransferTimeoutSec)),
                 KeepAliveInterval = TimeSpan.FromSeconds(30)
             };
 
@@ -318,40 +352,40 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// ConnectionInfo を構築する（Password / PrivateKey）
         /// </summary>
-        /// <param name="settings">設定値</param>
+        /// <param name="connectionPram">設定値</param>
         /// <returns>ConnectionInfo</returns>
-        private ConnectionInfo BuildConnectionInfo(CommonSettingValues settings)
+        private ConnectionInfo BuildConnectionInfo(SftpConnectionPram connectionPram)
         {
-            var port = settings.SftpPort <= 0 ? 22 : settings.SftpPort;
-            var timeout = TimeSpan.FromSeconds(Math.Max(1, settings.SftpConnectTimeoutSec));
+            var port = connectionPram.PortNo <= 0 ? 22 : connectionPram.PortNo;
+            var timeout = TimeSpan.FromSeconds(Math.Max(1, connectionPram.SftpConnectTimeoutSec));
 
-            if (string.Equals(settings.AuthType, "PrivateKey", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(connectionPram.AuthType, "PrivateKey", StringComparison.OrdinalIgnoreCase))
             {
-                if (string.IsNullOrWhiteSpace(settings.PrivateKeyPath))
+                if (string.IsNullOrWhiteSpace(connectionPram.PrivateKeyPath))
                     throw new InvalidOperationException("PrivateKeyPath is empty for PrivateKey auth.");
-                if (!File.Exists(settings.PrivateKeyPath))
-                    throw new FileNotFoundException("PrivateKey file not found.", settings.PrivateKeyPath);
+                if (!File.Exists(connectionPram.PrivateKeyPath))
+                    throw new FileNotFoundException("PrivateKey file not found.", connectionPram.PrivateKeyPath);
 
                 // パスフレーズが必要な鍵の場合は SftpPass を流用（必要なら設定キー分離）
-                var keyFile = string.IsNullOrWhiteSpace(settings.SftpPass)
-                    ? new PrivateKeyFile(settings.PrivateKeyPath)
-                    : new PrivateKeyFile(settings.PrivateKeyPath, settings.SftpPass);
+                var keyFile = string.IsNullOrWhiteSpace(connectionPram.Password)
+                    ? new PrivateKeyFile(connectionPram.PrivateKeyPath)
+                    : new PrivateKeyFile(connectionPram.PrivateKeyPath, connectionPram.Password);
 
-                var auth = new PrivateKeyAuthenticationMethod(settings.SftpUserName, keyFile);
+                var auth = new PrivateKeyAuthenticationMethod(connectionPram.UserName, keyFile);
 
-                return new ConnectionInfo(settings.SftpHostName, port, settings.SftpUserName, auth)
+                return new ConnectionInfo(connectionPram.UserName, port, connectionPram.UserName, auth)
                 {
                     Timeout = timeout
                 };
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(settings.SftpPass))
+                if (string.IsNullOrWhiteSpace(connectionPram.Password))
                     throw new InvalidOperationException("SftpPass is empty for Password auth.");
 
-                var auth = new PasswordAuthenticationMethod(settings.SftpUserName, settings.SftpPass);
+                var auth = new PasswordAuthenticationMethod(connectionPram.UserName, connectionPram.Password);
 
-                return new ConnectionInfo(settings.SftpHostName, port, settings.SftpUserName, auth)
+                return new ConnectionInfo(connectionPram.HostName, port, connectionPram.UserName, auth)
                 {
                     Timeout = timeout
                 };

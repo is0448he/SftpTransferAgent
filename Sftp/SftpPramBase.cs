@@ -1,7 +1,7 @@
 ﻿namespace SftpTransferAgent.Sftp
 {
     /// <summary>
-    /// SFTPパラメータ基底クラス（接続情報）
+    /// SFTPパラメータ基底クラス
     /// </summary>
     public abstract class SftpPramBase
     {

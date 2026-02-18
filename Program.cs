@@ -76,7 +76,6 @@ namespace SftpTransferAgent
                 // コンフィグの初期化
                 // SettingManager.Init(new List<string> { "./Settings/Setting.xml" });
                 // SettingManager.InitWithAppSettings();
-                var _settings = CommonSettingValues.Load();
 
                 // ApplicationInsights設定
                 // AiInit.ApplicationInsightsSettings();

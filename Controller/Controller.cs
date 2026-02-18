@@ -11,22 +11,29 @@ namespace SftpTransferAgent
     /// </summary>
     public class Controller
     {
-        private readonly CommonSettingValues _settings;
+        /// <summary>
+        /// SFTPサービス
+        /// </summary>
         private readonly SftpService _sftpService;
 
-        /// <summary>システム停止フラグ</summary>
+        /// <summary>
+        /// システム停止フラグ
+        /// </summary>
         private volatile bool _onStopCalled = false;
 
+        /// <summary>
+        /// コンストラクタ
+        /// </summary>
         public Controller()
-            : this(CommonSettingValues.Load(), new SftpService())
         {
-        }
-
-        // テスト・拡張のため注入可能にしておく
-        internal Controller(CommonSettingValues settings, SftpService sftpService)
-        {
-            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-            _sftpService = sftpService ?? throw new ArgumentNullException(nameof(sftpService));
+            try
+            {
+                _sftpService = new SftpService();
+            }
+            catch (Exception)
+            {
+                throw;
+            }
         }
 
         /// <summary>
@@ -38,7 +45,7 @@ namespace SftpTransferAgent
 
             try
             {
-                if (_settings.PollingEnabled)
+                if (CommonSettingValues.Current.PollingEnabled)
                 {
                     while (true)
                     {
@@ -52,7 +59,7 @@ namespace SftpTransferAgent
                         this.ExecuteTransfer();
 
                         // 待機(ポーリング間隔(s))
-                        Thread.Sleep(_settings.PollingIntervalMillSec);
+                        Thread.Sleep(CommonSettingValues.Current.PollingIntervalMillSec);
                     }
                 }
                 else
@@ -102,7 +109,7 @@ namespace SftpTransferAgent
                     Logger.Info($"[SftpTransferAgent] ExecuteTransfer start. attempt={executeCount}");
 
                     // ★ SFTPの実装詳細は知らない。結果だけ受け取る。
-                    bool ok = _sftpService.Execute(_settings);
+                    bool ok = _sftpService.Execute();
 
                     if (ok)
                     {
@@ -120,16 +127,16 @@ namespace SftpTransferAgent
                 }
 
                 // リトライ判定
-                if (executeCount > _settings.RetryMaxCount)
+                if (executeCount > CommonSettingValues.Current.RetryMaxCount)
                 {
-                    Logger.Error($"[SftpTransferAgent] Retry exceeded. max={_settings.RetryMaxCount}", null);
+                    Logger.Error($"[SftpTransferAgent] Retry exceeded. max={CommonSettingValues.Current.RetryMaxCount}", null);
                     return;
                 }
 
-                if (_settings.RetryIntervalMilliSec > 0)
+                if (CommonSettingValues.Current.RetryIntervalMilliSec >= 0)
                 {
                     // 待機(ポーリング間隔(s))
-                    Thread.Sleep(_settings.RetryIntervalMilliSec);
+                    Thread.Sleep(CommonSettingValues.Current.RetryIntervalMilliSec);
                 }
             }
         }

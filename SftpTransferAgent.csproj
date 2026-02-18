@@ -97,6 +97,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Sftp\SftpConnectionParam.cs" />
     <Compile Include="Sftp\SftpPramBase.cs" />
     <Compile Include="Sftp\SftpRecvPram.cs" />
     <Compile Include="Sftp\SftpSendPram.cs" />
