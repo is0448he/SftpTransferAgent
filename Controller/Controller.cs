@@ -108,7 +108,7 @@ namespace SftpTransferAgent
                     executeCount++;
                     Logger.Info($"[SftpTransferAgent] ExecuteTransfer start. attempt={executeCount}");
 
-                    // ★ SFTPの実装詳細は知らない。結果だけ受け取る。
+                    // 結果だけ受け取る
                     bool ok = _sftpService.Execute();
 
                     if (ok)

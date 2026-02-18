@@ -10,8 +10,19 @@ namespace SftpTransferAgent.Sftp
     /// </summary>
     public class SftpService
     {
+        /// <summary>
+        /// SFTP接続情報パラメータ
+        /// </summary>
         private readonly SftpConnectionPram _connectionPram;
+
+        /// <summary>
+        /// SFTP受信パラメータ
+        /// </summary>
         private readonly SftpRecvPram _recvPram;
+
+        /// <summary>
+        /// SFTP送信パラメータ
+        /// </summary>
         private readonly SftpSendPram _sendPram;
 
         /// <summary>
@@ -46,11 +57,11 @@ namespace SftpTransferAgent.Sftp
                 {
                     client.Connect();
 
-                    // GET（recv.zip）
+                    // GET
                     if (!TryDownloadRecvFile(client, _recvPram))
                         return false;
 
-                    // PUT（download.complete）
+                    // PUT
                     if (!TryUploadCompleteFile(client, _sendPram))
                         return false;
 
@@ -134,7 +145,7 @@ namespace SftpTransferAgent.Sftp
         /// GET：リモートに recv.zip が存在する場合にローカルへダウンロードする
         /// </summary>
         /// <param name="client">接続済みSftpClient</param>
-        /// <param name="settings">設定値</param>
+        /// <param name="recvPram">受信処理用パラメータ</param>
         /// <returns>True:正常 / False:異常</returns>
         private bool TryDownloadRecvFile(SftpClient client, SftpRecvPram recvPram)
         {
@@ -172,6 +183,9 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// GET：ローカルにテンポラリで落としてから置換する（途中失敗で壊れたファイルが残らない）
         /// </summary>
+        /// <param name="client">接続済みSftpClient</param>
+        /// <param name="remotePath">リモートファイルパス</param>
+        /// <param name="localPath">ローカルファイルパス</param>
         private void GetRemoteFile(SftpClient client, string remotePath, string localPath)
         {
             var tempPath = localPath + ".tmp";
@@ -194,7 +208,7 @@ namespace SftpTransferAgent.Sftp
         /// リモートファイル削除（失敗しても false にはせずログに残す）
         /// </summary>
         /// /// <param name="client">接続済みSftpClient</param>
-        /// <param name="remotePath">設定値</param>
+        /// <param name="remotePath">リモートファイルパス</param>
         private void TryDeleteRemoteFile(SftpClient client, string remotePath)
         {
             try
@@ -218,7 +232,7 @@ namespace SftpTransferAgent.Sftp
         /// PUT：ローカルに download.complete が存在する場合にリモートへアップロードする
         /// </summary>
         /// <param name="client">接続済みSftpClient</param>
-        /// <param name="settings">設定値</param>
+        /// <param name="sendPram">送信処理用パラメータ</param>
         /// <returns>True:正常 / False:異常</returns>
         private bool TryUploadCompleteFile(SftpClient client, SftpSendPram sendPram)
         {
@@ -306,7 +320,7 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// ローカルファイル削除（失敗しても false にはせずログに残す）
         /// </summary>
-        /// <param name="localPath">設定値</param>
+        /// <param name="localPath">ローカルファイルパス</param>
         private void TryDeleteLocalFile(string localPath)
         {
             try
@@ -327,7 +341,7 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// SftpClient を生成する（認証方式・タイムアウト等を設定）
         /// </summary>
-        /// <param name="settings">設定値</param>
+        /// <param name="connectionPram">SFTP接続情報パラメータ</param>
         /// <returns>SftpClient</returns>
         private SftpClient CreateSftpClient(SftpConnectionPram connectionPram)
         {
@@ -352,7 +366,7 @@ namespace SftpTransferAgent.Sftp
         /// <summary>
         /// ConnectionInfo を構築する（Password / PrivateKey）
         /// </summary>
-        /// <param name="connectionPram">設定値</param>
+        /// <param name="connectionPram">SFTP接続情報パラメータ</param>
         /// <returns>ConnectionInfo</returns>
         private ConnectionInfo BuildConnectionInfo(SftpConnectionPram connectionPram)
         {

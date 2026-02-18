@@ -1,7 +1,7 @@
 ﻿namespace SftpTransferAgent.Sftp
 {
     /// <summary>
-    /// PUT（送信）処理用のパラメータ
+    /// SFTP送信(PUT)パラメータ
     /// </summary>
     public sealed class SftpSendPram : SftpPramBase
     {

@@ -1,7 +1,7 @@
 ﻿namespace SftpTransferAgent.Sftp
 {
     /// <summary>
-    /// GET（受信）処理用のパラメータ
+    /// SFTP受信(GET)パラメータ
     /// </summary>
     public sealed class SftpRecvPram : SftpPramBase
     {

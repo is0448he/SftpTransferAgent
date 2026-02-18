@@ -10,7 +10,9 @@ namespace SftpTransferAgent.Common
         private static readonly Lazy<CommonSettingValues> _current =
             new Lazy<CommonSettingValues>(LoadCore, isThreadSafe: true);
 
-        /// <summary>設定値（キャッシュ）</summary>
+        /// <summary>
+        /// 設定値（キャッシュ）
+        /// </summary>
         public static CommonSettingValues Current => _current.Value;
 
         #region プロパティ定義
@@ -191,7 +193,14 @@ namespace SftpTransferAgent.Common
         }
 
         #region Helper
-
+        /// <summary>
+        /// App.config<appSettings>から文字列設定値を取得する。
+        /// </summary>
+        /// <param name="key">appSettingsのキー</param>
+        /// <returns>取得した文字列</returns>
+        /// <exception cref="ConfigurationErrorsException">
+        /// キーが存在しない、または値が null/空/空白の場合にスローする
+        /// </exception>
         private static string GetString(string key)
         {
             var value = ConfigurationManager.AppSettings[key];
@@ -200,6 +209,14 @@ namespace SftpTransferAgent.Common
             return value;
         }
 
+        /// <summary>
+        /// App.config<appSettings>からint設定値を取得する
+        /// </summary>
+        /// <param name="key">appSettingsのキー</param>
+        /// <returns>取得したint値</returns>
+        /// <exception cref="ConfigurationErrorsException">
+        /// キーが存在しない/空白、またはintに変換できない場合にスローする
+        /// </exception>
         private static int GetInt(string key)
         {
             var value = GetString(key);
@@ -208,6 +225,14 @@ namespace SftpTransferAgent.Common
             return result;
         }
 
+        /// <summary>
+        /// App.config<appSettings>からbool設定値を取得する（必須）。
+        /// </summary>
+        /// <param name="key">appSettings のキー</param>
+        /// <returns>取得したbool値</returns>
+        /// <exception cref="ConfigurationErrorsException">
+        /// キーが存在しない/空白、またはboolに変換できない場合にスローする
+        /// </exception>
         private static bool GetBool(string key)
         {
             var value = GetString(key);
