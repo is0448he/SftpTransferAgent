@@ -1,8 +1,8 @@
-﻿using SftpTransferAgent.Common;
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using SftpTransferAgent.Common;
 
 namespace SftpTransferAgent
 {
@@ -10,8 +10,6 @@ namespace SftpTransferAgent
     {
         /// <summary>コントローラー</summary>
         private static Controller _controller;
-
-        private static NotifyIcon _notifyIcon;
 
         /// <summary>
         /// The main entry point for the application.
