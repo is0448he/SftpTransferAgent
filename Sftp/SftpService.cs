@@ -154,8 +154,8 @@ namespace SftpTransferAgent.Sftp
             {
                 this.EnsureLocalDirectory(recvPram.RecvLocalDir);
 
-                var remoteZipPath = CombineRemotePath(recvPram.RecvRemoteDir, recvPram.RecvTargetFileName);
-                var localZipPath = Path.Combine(recvPram.RecvLocalDir, recvPram.RecvTargetFileName);
+                var remoteZipPath = this.CombinePath(recvPram.RecvRemoteDir, recvPram.RecvTargetFileName);
+                var localZipPath = this.CombinePath(recvPram.RecvLocalDir, recvPram.RecvTargetFileName);
 
                 if (!client.Exists(remoteZipPath))
                 {
@@ -241,8 +241,8 @@ namespace SftpTransferAgent.Sftp
             {
                 this.EnsureLocalDirectory(sendPram.SendLocalDir);
 
-                var localCompletePath = Path.Combine(sendPram.SendLocalDir, sendPram.SendTargetFileName);
-                var remoteCompletePath = CombineRemotePath(sendPram.SendRemoteDir, sendPram.SendTargetFileName);
+                var localCompletePath = this.CombinePath(sendPram.SendLocalDir, sendPram.SendTargetFileName);
+                var remoteCompletePath = this.CombinePath(sendPram.SendRemoteDir, sendPram.SendTargetFileName);
 
                 if (!File.Exists(localCompletePath))
                 {
@@ -435,21 +435,38 @@ namespace SftpTransferAgent.Sftp
         }
 
         /// <summary>
-        /// リモートパスを結合する（SSH.NETは基本 '/' 区切り。Windowsっぽい設定値でも吸収）
+        /// ディレクトリとファイル名を結合してパス文字列を生成する（ローカル/リモート共通）。
+        /// 設定値は極力そのまま尊重し、結合点の区切り重複（末尾の / や \）だけを吸収する。
         /// </summary>
-        /// <param name="dir">ディレクトリ</param>
-        /// <param name="name">ファイル名</param>
+        /// <param name="dir">ディレクトリ（例: "C:\SftpAgent\recv", "/recv/", "/C:/SftpServer"）</param>
+        /// <param name="fileName">ファイル名（例: "recv.zip"）</param>
         /// <returns>結合済みパス</returns>
-        private string CombineRemotePath(string dir, string name)
+        private string CombinePath(string dir, string fileName)
         {
-            // 例: "C:\SftpServer" + "recv.zip" -> "C:/SftpServer/recv.zip"
-            var d = (dir ?? "").Replace('\\', '/').TrimEnd('/');
-            var n = (name ?? "").Replace('\\', '/').TrimStart('/');
+            dir = (dir ?? string.Empty).Trim();
+            fileName = (fileName ?? string.Empty).Trim();
 
-            if (string.IsNullOrWhiteSpace(d)) d = "/";
-            if (string.IsNullOrWhiteSpace(n)) return d;
+            if (dir.Length == 0)
+            {
+                return fileName;
+            }
 
-            return $"{d}/{n}";
+            if (fileName.Length == 0)
+            {
+                return dir;
+            }
+            
+
+            // 区切りは dir 側に寄せる（dir に '\' が含まれていて '/' が無ければ '\'、それ以外は '/'）
+            var sep = (dir.IndexOf('\\') >= 0 && dir.IndexOf('/') < 0) ? '\\' : '/';
+
+            // 結合点のみ整形（中身の置換や正規化はしない）
+            var d = dir.TrimEnd('/', '\\');
+
+            // dir が "/" や "\" のみの場合に TrimEnd で空になる → ルート扱い
+            if (d.Length == 0) return sep + fileName;
+
+            return d + sep + fileName;
         }
     }
 }
