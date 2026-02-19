@@ -1,6 +1,7 @@
 ﻿using Renci.SshNet;
 using SftpTransferAgent.Common;
 using System;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 
 namespace SftpTransferAgent.Sftp
@@ -370,39 +371,55 @@ namespace SftpTransferAgent.Sftp
         /// <returns>ConnectionInfo</returns>
         private ConnectionInfo BuildConnectionInfo(SftpConnectionPram connectionPram)
         {
+            if (connectionPram == null) throw new ArgumentNullException(nameof(connectionPram));
+            
             var port = connectionPram.PortNo <= 0 ? 22 : connectionPram.PortNo;
             var timeout = TimeSpan.FromSeconds(Math.Max(1, connectionPram.SftpConnectTimeoutSec));
 
-            if (string.Equals(connectionPram.AuthType, "PrivateKey", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(connectionPram.HostName))
+                throw new InvalidOperationException("SftpHostName is empty.");
+            if (string.IsNullOrWhiteSpace(connectionPram.UserName))
+                throw new InvalidOperationException("SftpUserName is empty.");
+
+            // AuthType を正規化（nullも吸収）
+            var authType = (connectionPram.AuthType ?? string.Empty).Trim();
+
+            switch (authType.ToUpperInvariant())
             {
-                if (string.IsNullOrWhiteSpace(connectionPram.PrivateKeyPath))
-                    throw new InvalidOperationException("PrivateKeyPath is empty for PrivateKey auth.");
-                if (!File.Exists(connectionPram.PrivateKeyPath))
-                    throw new FileNotFoundException("PrivateKey file not found.", connectionPram.PrivateKeyPath);
+                case "PRIVATEKEY":
+                    {
+                        if (string.IsNullOrWhiteSpace(connectionPram.PrivateKeyPath))
+                            throw new InvalidOperationException("PrivateKeyPath is empty for PrivateKey auth.");
+                        if (!File.Exists(connectionPram.PrivateKeyPath))
+                            throw new FileNotFoundException("PrivateKey file not found.", connectionPram.PrivateKeyPath);
 
-                // パスフレーズが必要な鍵の場合は SftpPass を流用（必要なら設定キー分離）
-                var keyFile = string.IsNullOrWhiteSpace(connectionPram.Password)
-                    ? new PrivateKeyFile(connectionPram.PrivateKeyPath)
-                    : new PrivateKeyFile(connectionPram.PrivateKeyPath, connectionPram.Password);
+                        var keyFile = new PrivateKeyFile(connectionPram.PrivateKeyPath);
 
-                var auth = new PrivateKeyAuthenticationMethod(connectionPram.UserName, keyFile);
+                        // 接続の途中でサーバが投げてくるチャレンジに対して、SSH.NETが内部で署名して応答する
+                        var auth = new PrivateKeyAuthenticationMethod(connectionPram.UserName, keyFile);
 
-                return new ConnectionInfo(connectionPram.UserName, port, connectionPram.UserName, auth)
-                {
-                    Timeout = timeout
-                };
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(connectionPram.Password))
-                    throw new InvalidOperationException("SftpPass is empty for Password auth.");
+                        var conn = new ConnectionInfo(connectionPram.HostName, port, connectionPram.UserName, auth);
+                        conn.Timeout = timeout;
 
-                var auth = new PasswordAuthenticationMethod(connectionPram.UserName, connectionPram.Password);
+                        return conn;
+                    }
 
-                return new ConnectionInfo(connectionPram.HostName, port, connectionPram.UserName, auth)
-                {
-                    Timeout = timeout
-                };
+                case "PASSWORD":
+                    {
+                        // AuthType未指定なら PASSWORD 扱いにしたい場合は "" をここに入れる
+                        if (string.IsNullOrWhiteSpace(connectionPram.Password))
+                            throw new InvalidOperationException("SftpPass is empty for Password auth.");
+
+                        var auth = new PasswordAuthenticationMethod(connectionPram.UserName, connectionPram.Password);
+
+                        var conn = new ConnectionInfo(connectionPram.HostName, port, connectionPram.UserName, auth);
+                        conn.Timeout = timeout;
+
+                        return conn;
+                    }
+
+                default:
+                    throw new InvalidOperationException($"Unknown AuthType: '{connectionPram.AuthType}'.");
             }
         }
 
