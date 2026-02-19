@@ -348,11 +348,9 @@ namespace SftpTransferAgent.Sftp
         {
             var connectionInfo = this.BuildConnectionInfo(connectionPram);
 
-            var client = new SftpClient(connectionInfo)
-            {
-                OperationTimeout = TimeSpan.FromSeconds(Math.Max(1, connectionPram.SftpTransferTimeoutSec)),
-                KeepAliveInterval = TimeSpan.FromSeconds(30)
-            };
+            var client = new SftpClient(connectionInfo);
+            client.OperationTimeout = TimeSpan.FromSeconds(Math.Max(1, connectionPram.SftpTransferTimeoutSec));
+            client.KeepAliveInterval = TimeSpan.FromSeconds(30);
 
             // ホストキー検証（現状は設定で持っていないので許可。将来ピン止め推奨）
             client.HostKeyReceived += (s, e) =>
@@ -381,7 +379,7 @@ namespace SftpTransferAgent.Sftp
             if (string.IsNullOrWhiteSpace(connectionPram.UserName))
                 throw new InvalidOperationException("SftpUserName is empty.");
 
-            // AuthType を正規化（nullも吸収）
+            // AuthType を正規化
             var authType = (connectionPram.AuthType ?? string.Empty).Trim();
 
             switch (authType.ToUpperInvariant())
