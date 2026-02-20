@@ -106,7 +106,7 @@ namespace SftpTransferAgent
                 try
                 {
                     executeCount++;
-                    Logger.Info($"[SftpTransferAgent] ExecuteTransfer start. attempt={executeCount}");
+                    Logger.Info($"[SftpTransferAgent] ExecuteTransfer start.");
 
                     // 結果だけ受け取る
                     bool ok = _sftpService.Execute();
@@ -118,26 +118,23 @@ namespace SftpTransferAgent
                     }
 
                     // false = 失敗扱い（リトライ対象）
-                    Logger.Warn("[SftpTransferAgent] ExecuteTransfer returned false.");
+                    Logger.Warn($"[SftpTransferAgent] ExecuteTransfer returned false.リトライ;{executeCount}回目");
                 }
                 catch (Exception ex)
                 {
                     // 例外も失敗扱い（リトライ対象）
-                    Logger.Error($"[SftpTransferAgent] ExecuteTransfer exception. attempt={executeCount}", ex);
+                    Logger.Error($"[SftpTransferAgent] ExecuteTransfer exception. リトライ;{executeCount}回目", ex);
                 }
 
                 // リトライ判定
-                if (executeCount > CommonSettingValues.Current.RetryMaxCount)
+                if (executeCount >= CommonSettingValues.Current.RetryMaxCount)
                 {
                     Logger.Error($"[SftpTransferAgent] Retry exceeded. max={CommonSettingValues.Current.RetryMaxCount}", null);
                     return;
                 }
 
-                if (CommonSettingValues.Current.RetryIntervalMilliSec >= 0)
-                {
-                    // 待機(ポーリング間隔(s))
-                    Thread.Sleep(CommonSettingValues.Current.RetryIntervalMilliSec);
-                }
+                // 待機(ポーリング間隔(s))
+                Thread.Sleep(CommonSettingValues.Current.RetryIntervalMilliSec);
             }
         }
     }
