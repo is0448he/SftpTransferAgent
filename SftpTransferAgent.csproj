@@ -89,6 +89,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Common\CryptoUtility.cs" />
+    <Compile Include="Common\DirectoryUtility.cs" />
     <Compile Include="Common\Logger.cs" />
     <Compile Include="Controller\Controller.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

@@ -1,7 +1,6 @@
 ﻿using Renci.SshNet;
 using SftpTransferAgent.Common;
 using System;
-using System.Diagnostics.Eventing.Reader;
 using System.IO;
 
 namespace SftpTransferAgent.Sftp
@@ -152,10 +151,10 @@ namespace SftpTransferAgent.Sftp
         {
             try
             {
-                this.EnsureLocalDirectory(recvPram.RecvLocalDir);
+                CommonUtility.EnsureLocalDirectory(recvPram.RecvLocalDir);
 
-                var remoteZipPath = this.CombinePath(recvPram.RecvRemoteDir, recvPram.RecvTargetFileName);
-                var localZipPath = this.CombinePath(recvPram.RecvLocalDir, recvPram.RecvTargetFileName);
+                var remoteZipPath = CommonUtility.CombinePath(recvPram.RecvRemoteDir, recvPram.RecvTargetFileName);
+                var localZipPath = CommonUtility.CombinePath(recvPram.RecvLocalDir, recvPram.RecvTargetFileName);
 
                 if (!client.Exists(remoteZipPath))
                 {
@@ -170,7 +169,7 @@ namespace SftpTransferAgent.Sftp
                 Logger.Info($"[SftpTransferAgent] GET success. local='{localZipPath}'");
 
                 // 成功したらリモートファイル削除
-                this.TryDeleteRemoteFile(client, remoteZipPath);
+                CommonUtility.TryDeleteRemoteFile(client, remoteZipPath);
 
                 return true;
             }
@@ -204,28 +203,6 @@ namespace SftpTransferAgent.Sftp
 
             File.Move(tempPath, localPath);
         }
-
-        /// <summary>
-        /// リモートファイル削除（失敗しても false にはせずログに残す）
-        /// </summary>
-        /// /// <param name="client">接続済みSftpClient</param>
-        /// <param name="remotePath">リモートファイルパス</param>
-        private void TryDeleteRemoteFile(SftpClient client, string remotePath)
-        {
-            try
-            {
-                if (client.Exists(remotePath))
-                {
-                    client.DeleteFile(remotePath);
-                    Logger.Info($"[SftpTransferAgent] RemoteFile deleted. remote='{remotePath}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                // 「転送自体は成功している」ので致命扱いにしない
-                Logger.Warn($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
-            }
-        }
         #endregion
 
         #region PUT
@@ -239,10 +216,10 @@ namespace SftpTransferAgent.Sftp
         {
             try
             {
-                this.EnsureLocalDirectory(sendPram.SendLocalDir);
+                CommonUtility.EnsureLocalDirectory(sendPram.SendLocalDir);
 
-                var localCompletePath = this.CombinePath(sendPram.SendLocalDir, sendPram.SendTargetFileName);
-                var remoteCompletePath = this.CombinePath(sendPram.SendRemoteDir, sendPram.SendTargetFileName);
+                var localCompletePath = CommonUtility.CombinePath(sendPram.SendLocalDir, sendPram.SendTargetFileName);
+                var remoteCompletePath = CommonUtility.CombinePath(sendPram.SendRemoteDir, sendPram.SendTargetFileName);
 
                 if (!File.Exists(localCompletePath))
                 {
@@ -250,7 +227,7 @@ namespace SftpTransferAgent.Sftp
                     return true; // 処理なし＝正常
                 }
 
-                if (this.IsFileLockedForRead(localCompletePath))
+                if (CommonUtility.IsFileLockedForRead(localCompletePath))
                 {
                     // ロックされていればリトライへ
                     Logger.Warn($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
@@ -264,7 +241,7 @@ namespace SftpTransferAgent.Sftp
                 Logger.Info($"[SftpTransferAgent] PUT success. remote='{remoteCompletePath}'");
 
                 // 成功したらローカルファイル削除
-                this.TryDeleteLocalFile(localCompletePath);
+                CommonUtility.TryDeleteLocalFile(localCompletePath);
 
                 return true;
             }
@@ -272,32 +249,6 @@ namespace SftpTransferAgent.Sftp
             {
                 Logger.Error("[SftpTransferAgent] PUT failed.", ex);
                 return false;
-            }
-        }
-
-        /// <summary>
-        /// ローカルファイルが「読み取り用に排他オープンできない」＝ロック中かどうかを判定する
-        /// </summary>
-        /// <param name="path">ファイルパス</param>
-        /// <returns>True:ロック中 / False:ロック中ではない</returns>
-        private bool IsFileLockedForRead(string path)
-        {
-            try
-            {
-                // 読み取りを排他で開けるかチェック（開けなければ誰かが掴んでる可能性が高い）
-                using (File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
-                {
-                    return false;
-                }
-            }
-            catch (IOException)
-            {
-                return true;
-            }
-            catch (UnauthorizedAccessException)
-            {
-                // 権限や属性でも開けない場合があるのでログで気づけるように「ロック扱い」
-                return true;
             }
         }
 
@@ -315,26 +266,6 @@ namespace SftpTransferAgent.Sftp
             using (var fs = File.Open(localPath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 client.UploadFile(fs, remotePath, true);
-            }
-        }
-
-        /// <summary>
-        /// ローカルファイル削除（失敗しても false にはせずログに残す）
-        /// </summary>
-        /// <param name="localPath">ローカルファイルパス</param>
-        private void TryDeleteLocalFile(string localPath)
-        {
-            try
-            {
-                if (File.Exists(localPath))
-                {
-                    File.Delete(localPath);
-                    Logger.Info($"[SftpTransferAgent] LocalFile deleted. local='{localPath}'");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Warn($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
             }
         }
         #endregion
@@ -419,54 +350,6 @@ namespace SftpTransferAgent.Sftp
                 default:
                     throw new InvalidOperationException($"Unknown AuthType: '{connectionPram.AuthType}'.");
             }
-        }
-
-        /// <summary>
-        /// ローカルディレクトリが存在しない場合は作成する
-        /// </summary>
-        /// <param name="dir">ディレクトリパス</param>
-        private void EnsureLocalDirectory(string dir)
-        {
-            if (string.IsNullOrWhiteSpace(dir))
-                throw new InvalidOperationException("Local directory path is empty.");
-
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-        }
-
-        /// <summary>
-        /// ディレクトリとファイル名を結合してパス文字列を生成する（ローカル/リモート共通）。
-        /// 設定値は極力そのまま尊重し、結合点の区切り重複（末尾の / や \）だけを吸収する。
-        /// </summary>
-        /// <param name="dir">ディレクトリ（例: "C:\SftpAgent\recv", "/recv/", "/C:/SftpServer"）</param>
-        /// <param name="fileName">ファイル名（例: "recv.zip"）</param>
-        /// <returns>結合済みパス</returns>
-        private string CombinePath(string dir, string fileName)
-        {
-            dir = (dir ?? string.Empty).Trim();
-            fileName = (fileName ?? string.Empty).Trim();
-
-            if (dir.Length == 0)
-            {
-                return fileName;
-            }
-
-            if (fileName.Length == 0)
-            {
-                return dir;
-            }
-            
-
-            // 区切りは dir 側に寄せる（dir に '\' が含まれていて '/' が無ければ '\'、それ以外は '/'）
-            var sep = (dir.IndexOf('\\') >= 0 && dir.IndexOf('/') < 0) ? '\\' : '/';
-
-            // 結合点のみ整形（中身の置換や正規化はしない）
-            var d = dir.TrimEnd('/', '\\');
-
-            // dir が "/" や "\" のみの場合に TrimEnd で空になる → ルート扱い
-            if (d.Length == 0) return sep + fileName;
-
-            return d + sep + fileName;
         }
     }
 }
