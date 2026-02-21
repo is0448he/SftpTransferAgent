@@ -88,6 +88,7 @@
     <Compile Include="Common\CommonSettingValues.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
+    <Compile Include="Common\Contracts\ISftpCommonPram.cs" />
     <Compile Include="Common\CryptoUtility.cs" />
     <Compile Include="Common\DirectoryUtility.cs" />
     <Compile Include="Common\Logger.cs" />
@@ -98,6 +99,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Sftp\Factorys\SftpPramFactory.cs" />
     <Compile Include="Sftp\SftpConnectionParam.cs" />
     <Compile Include="Sftp\SftpPramBase.cs" />
     <Compile Include="Sftp\SftpRecvPram.cs" />

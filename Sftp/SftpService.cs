@@ -2,6 +2,7 @@
 using SftpTransferAgent.Common;
 using System;
 using System.IO;
+using SftpTransferAgent.Sftp.Factorys;
 
 namespace SftpTransferAgent.Sftp
 {
@@ -32,9 +33,9 @@ namespace SftpTransferAgent.Sftp
         {
             try
             {
-                _connectionPram = CreateConnectionPram();
-                _recvPram = CreateRecvPram();
-                _sendPram = CreateSendPram();
+                _connectionPram = SftpPramFactory.CreateConnectionPram();
+                _recvPram = SftpPramFactory.CreateRecvPram();
+                _sendPram = SftpPramFactory.CreateSendPram();
             }
             catch (Exception ex)
             {
@@ -74,71 +75,6 @@ namespace SftpTransferAgent.Sftp
                 return false;
             }
         }
-
-        #region CreatePram
-        /// <summary>
-        /// 設定値から接続情報パラメータを生成する
-        /// </summary>
-        /// <returns>受信処理用パラメータ</returns>
-        private SftpConnectionPram CreateConnectionPram()
-        {
-            return new SftpConnectionPram
-            {
-                HostName = CommonSettingValues.Current.SftpHostName,
-                PortNo = CommonSettingValues.Current.SftpPort,
-                UserName = CommonSettingValues.Current.SftpUserName,
-                Password = CommonSettingValues.Current.SftpPass,
-                AuthType = CommonSettingValues.Current.AuthType,
-                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
-                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
-                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec
-            };
-        }
-
-        /// <summary>
-        /// 設定値からGET（受信）処理用パラメータを生成する。
-        /// </summary>
-        /// <returns>受信処理用パラメータ</returns>
-        private SftpRecvPram CreateRecvPram()
-        {
-            return new SftpRecvPram
-            {
-                HostName = CommonSettingValues.Current.SftpHostName,
-                PortNo = CommonSettingValues.Current.SftpPort,
-                UserName = CommonSettingValues.Current.SftpUserName,
-                Password = CommonSettingValues.Current.SftpPass,
-                AuthType = CommonSettingValues.Current.AuthType,
-                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
-                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
-                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec,
-                RecvRemoteDir = CommonSettingValues.Current.RecvRemoteDir,
-                RecvLocalDir = CommonSettingValues.Current.RecvLocalDir,
-                RecvTargetFileName = CommonSettingValues.Current.RecvZipFileName
-            };
-        }
-
-        /// <summary>
-        /// 設定値からPUT（送信）処理用パラメータを生成する。
-        /// </summary>
-        /// <returns>送信処理用パラメータ</returns>
-        private SftpSendPram CreateSendPram()
-        {
-            return new SftpSendPram
-            {
-                HostName = CommonSettingValues.Current.SftpHostName,
-                PortNo = CommonSettingValues.Current.SftpPort,
-                UserName = CommonSettingValues.Current.SftpUserName,
-                Password = CommonSettingValues.Current.SftpPass,
-                AuthType = CommonSettingValues.Current.AuthType,
-                PrivateKeyPath = CommonSettingValues.Current.PrivateKeyPath,
-                SftpConnectTimeoutSec = CommonSettingValues.Current.SftpConnectTimeoutSec,
-                SftpTransferTimeoutSec = CommonSettingValues.Current.SftpTransferTimeoutSec,
-                SendRemoteDir = CommonSettingValues.Current.SendRemoteDir,
-                SendLocalDir = CommonSettingValues.Current.SendLocalDir,
-                SendTargetFileName = CommonSettingValues.Current.CompleteFileName
-            };
-        }
-        #endregion
 
         #region GET
         /// <summary>
