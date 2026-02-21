@@ -22,6 +22,11 @@ namespace SftpTransferAgent
         private volatile bool _onStopCalled = false;
 
         /// <summary>
+        /// Stop時に待機を解除するためのシグナル
+        /// </summary>
+        private readonly ManualResetEventSlim _stopSignal = new ManualResetEventSlim(false);
+
+        /// <summary>
         /// コンストラクタ
         /// </summary>
         public Controller()
@@ -58,8 +63,9 @@ namespace SftpTransferAgent
 
                         this.ExecuteTransfer();
 
-                        // 待機(ポーリング間隔(s))
-                        Thread.Sleep(CommonSettingValues.Current.PollingIntervalMillSec);
+                        // 待機(ポーリング間隔)：
+                        // Stop() が呼ばれて _stopSignal.Set() されると、timeoutを待たずに即復帰する
+                        this._stopSignal.Wait(CommonSettingValues.Current.PollingIntervalMillSec);
                     }
                 }
                 else
@@ -86,6 +92,9 @@ namespace SftpTransferAgent
         {
             Logger.Warn($"[SftpTransferAgent] Stop method called.");
             this._onStopCalled = true;
+
+            // 待機を即解除
+            this._stopSignal.Set();
         }
 
         // <summary>
@@ -97,7 +106,7 @@ namespace SftpTransferAgent
 
             while (true)
             {
-                if (_onStopCalled)
+                if (this._onStopCalled)
                 {
                     Logger.Warn("[SftpTransferAgent] Stop requested before transfer.");
                     return;
@@ -132,9 +141,9 @@ namespace SftpTransferAgent
                     Logger.Error($"[SftpTransferAgent] Retry exceeded. max={CommonSettingValues.Current.RetryMaxCount}", null);
                     return;
                 }
-
-                // 待機(ポーリング間隔(s))
-                Thread.Sleep(CommonSettingValues.Current.RetryIntervalMilliSec);
+                
+                // 待機(リトライ間隔)
+                this._stopSignal.Wait(CommonSettingValues.Current.RetryIntervalMilliSec);
             }
         }
     }
