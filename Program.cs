@@ -41,7 +41,7 @@ namespace SftpTransferAgent
         {
             var icon = new NotifyIcon();
 
-            icon.Icon = new Icon("Icon.ico");
+            icon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
             icon.ContextMenuStrip = ContextMenu();
             icon.Text = "SftpTransferAgent";
             icon.Visible = true;
