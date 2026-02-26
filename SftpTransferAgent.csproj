@@ -114,6 +114,7 @@
     </None>
     <None Include="packages.config" />
     <None Include="Scripts\Cleanup-LocalLogs.ps1" />
+    <None Include="Scripts\Decrypt-Pass.ps1" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Azure\Ai\" />
