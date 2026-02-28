@@ -94,7 +94,11 @@
     <Compile Include="Common\Contracts\ISftpCommonPram.cs" />
     <Compile Include="Common\CryptoUtility.cs" />
     <Compile Include="Common\DirectoryUtility.cs" />
-    <Compile Include="Common\Logger.cs" />
+    <Compile Include="Common\Logging\ILogger.cs" />
+    <Compile Include="Common\Logging\Logger.cs" />
+    <Compile Include="Common\Logging\LoggerSettings.cs" />
+    <Compile Include="Common\Logging\LogLevel.cs" />
+    <Compile Include="Common\Logging\RollingFileLogger.cs" />
     <Compile Include="Controller\Controller.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Compile>

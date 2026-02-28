@@ -1,6 +1,7 @@
-﻿using Renci.SshNet;
-using System;
+﻿using System;
 using System.IO;
+using Renci.SshNet;
+using SftpTransferAgent.Common.Logging;
 
 namespace SftpTransferAgent.Common
 {

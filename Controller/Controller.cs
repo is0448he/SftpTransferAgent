@@ -1,8 +1,9 @@
-﻿using SftpTransferAgent.Common;
-using SftpTransferAgent.Sftp;
-using System;
+﻿using System;
 using System.Threading;
 using System.Windows.Forms;
+using SftpTransferAgent.Common;
+using SftpTransferAgent.Common.Logging;
+using SftpTransferAgent.Sftp;
 
 namespace SftpTransferAgent
 {
