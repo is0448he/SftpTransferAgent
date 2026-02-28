@@ -1,5 +1,8 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using SftpTransferAgent.Common.Logging;
@@ -8,25 +11,28 @@ namespace SftpTransferAgent
 {
     internal static class Program
     {
-        /// <summary>コントローラー</summary>
         private static Controller _controller;
-
-        /// <summary>タスクトレイアイコン（GC回収・終了時のDispose対策）</summary>
         private static NotifyIcon _notifyIcon;
-
-        /// <summary>コントローラー実行タスク</summary>
         private static Task _controllerTask;
 
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
+        private static SynchronizationContext _uiContext;
+        private static Icon _iconNormal;
+
+        private static int _shutdownFlag = 0; // 0:通常 / 1:シャットダウン中
+        private static int _exitCode = 0;
+
+        private enum TrayStatus
+        {
+            Starting,
+            Running,
+            Error,
+            Stopping
+        }
+
         [STAThread]
         static void Main()
         {
-            // ★ログ初期化は最優先（以降の Logger.* を確実にファイル出力させる）
             Logger.InitializeFromAppConfig();
-
-            // ★例外ハンドリング（落ちても原因追跡できるように）
             SetupGlobalExceptionHandlers();
 
             Logger.Info("[SftpTransferAgent] Main start.");
@@ -38,44 +44,55 @@ namespace SftpTransferAgent
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
+                _uiContext = SynchronizationContext.Current;
+
                 CreateNotifyIcon();
+                SetTrayStatus(TrayStatus.Starting, "起動中");
+
+                // 起動通知（環境差で落ちないよう少し遅らせる）
+                ScheduleStartupNotice();
 
                 _controller = new Controller();
 
-                // ★バックグラウンド処理の例外を握りつぶさずログへ
                 _controllerTask = Task.Run(() =>
                 {
                     try
                     {
                         Logger.Info("[SftpTransferAgent] Controller.Run start.");
+                        SetTrayStatus(TrayStatus.Running, "稼働中");
+
                         _controller.Run();
+
                         Logger.Info("[SftpTransferAgent] Controller.Run end.");
                     }
                     catch (Exception ex)
                     {
                         Logger.Fatal("[SftpTransferAgent] Controller.Run crashed.", ex);
+                        SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
 
-                        // ここでアプリ継続する/終了するは運用方針次第。
-                        // 「常駐してるのに中身が死んだ」を避けたいなら Exit 推奨。
-                        try { Application.Exit(); } catch { /* noop */ }
+                        // 中身が死んだまま常駐しないよう終了へ
+                        BeginShutdown("Controller crashed", exitCode: 1);
                     }
                 });
 
-                // 終了処理（終了時にログ、リソース破棄）
+                // ApplicationExit は「UI破棄だけ」に寄せる（ここで Stop するとブロックして詰まりやすい）
                 Application.ApplicationExit += (s, e) =>
                 {
                     try
                     {
                         Logger.Info("[SftpTransferAgent] ApplicationExit called.");
 
-                        if (_controller != null)
-                            _controller.Stop();
-
                         if (_notifyIcon != null)
                         {
                             _notifyIcon.Visible = false;
                             _notifyIcon.Dispose();
                             _notifyIcon = null;
+                        }
+
+                        if (_iconNormal != null)
+                        {
+                            _iconNormal.Dispose();
+                            _iconNormal = null;
                         }
                     }
                     catch (Exception ex)
@@ -84,13 +101,12 @@ namespace SftpTransferAgent
                     }
                 };
 
-                // メッセージループ開始（フォームなしの常駐）
                 Application.Run();
             }
             catch (Exception ex)
             {
                 Logger.Fatal("[SftpTransferAgent] Unhandled exception in Main.", ex);
-                // ここで再throwするかは運用方針次第。タスクスケジューラなら終了でOKが多い。
+                BeginShutdown("Unhandled exception in Main", exitCode: 1);
             }
             finally
             {
@@ -98,92 +114,236 @@ namespace SftpTransferAgent
             }
         }
 
-        /// <summary>
-        /// グローバル例外ハンドラ設定（UI/非UI/Task）
-        /// </summary>
         private static void SetupGlobalExceptionHandlers()
         {
-            // WinForms UIスレッドの未処理例外
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (s, e) =>
             {
                 Logger.Fatal("[SftpTransferAgent] UI ThreadException occurred.", e.Exception);
+                SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
+                BeginShutdown("UI ThreadException", exitCode: 1);
             };
 
-            // 非UIスレッドの未処理例外
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
                 Logger.Fatal("[SftpTransferAgent] AppDomain UnhandledException occurred.", e.ExceptionObject as Exception);
+                SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
+                BeginShutdown("AppDomain UnhandledException", exitCode: 1);
             };
 
-            // 観測されなかったTask例外
             TaskScheduler.UnobservedTaskException += (s, e) =>
             {
                 Logger.Error("[SftpTransferAgent] UnobservedTaskException occurred.", e.Exception);
                 e.SetObserved();
+                SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
+                BeginShutdown("UnobservedTaskException", exitCode: 1);
             };
         }
 
-        /// <summary>
-        /// タスクトレイ表示設定
-        /// </summary>
         private static void CreateNotifyIcon()
         {
             _notifyIcon = new NotifyIcon();
 
-            _notifyIcon.Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            _iconNormal = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            _notifyIcon.Icon = _iconNormal;
+
             _notifyIcon.ContextMenuStrip = ContextMenu();
             _notifyIcon.Text = "SftpTransferAgent";
             _notifyIcon.Visible = true;
+
+            // ダブルクリックでログフォルダを開く
+            _notifyIcon.DoubleClick += (s, e) => OpenLogFolder();
         }
 
-        /// <summary>
-        /// コンテキストメニュー設定
-        /// </summary>
         private static ContextMenuStrip ContextMenu()
         {
             var menu = new ContextMenuStrip();
 
+            menu.Items.Add("ログフォルダを開く", null, (s, e) =>
+            {
+                Logger.Info("[SftpTransferAgent] Open log folder clicked.");
+                OpenLogFolder();
+            });
+
+            menu.Items.Add(new ToolStripSeparator());
+
             menu.Items.Add("終了", null, (s, e) =>
             {
-                try
-                {
-                    Logger.Info("[SftpTransferAgent] Exit menu clicked.");
-
-                    if (_controller != null)
-                        _controller.Stop();
-
-                    Application.Exit();
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("[SftpTransferAgent] Error on exit menu.", ex);
-                    try { Application.Exit(); } catch { /* noop */ }
-                }
+                Logger.Info("[SftpTransferAgent] Exit menu clicked.");
+                BeginShutdown("User requested exit", exitCode: 0);
             });
 
             return menu;
         }
 
         /// <summary>
-        /// 初期化
+        /// 停止要求→待機→最後は強制終了でを確実に潰す
         /// </summary>
+        private static void BeginShutdown(string reason, int exitCode)
+        {
+            // 多重に呼ばれても1回だけ実行
+            if (Interlocked.Exchange(ref _shutdownFlag, 1) != 0) return;
+
+            _exitCode = exitCode;
+
+            Logger.Warning($"[SftpTransferAgent] Shutdown requested. reason={reason}");
+            SetTrayStatus(TrayStatus.Stopping, "停止中", showBalloon: false);
+
+            // メニュー無効化（連打防止）
+            PostToUi(() =>
+            {
+                try
+                {
+                    if (_notifyIcon?.ContextMenuStrip != null)
+                        _notifyIcon.ContextMenuStrip.Enabled = false;
+                }
+                catch { /* noop */ }
+            });
+
+            // 停止処理はUIスレッドを塞がない
+            Task.Run(() =>
+            {
+                try
+                {
+                    // 停止要求
+                    try
+                    {
+                        _controller?.Stop();
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error("[SftpTransferAgent] Error on Controller.Stop.", ex);
+                        _exitCode = 1;
+                    }
+
+                    // Run が止まるのを少し待つ（止まらないときは次へ）
+                    try
+                    {
+                        if (_controllerTask != null)
+                        {
+                            if (!_controllerTask.Wait(TimeSpan.FromSeconds(10)))
+                                Logger.Warning("[SftpTransferAgent] Controller task did not stop within 10 seconds.");
+                        }
+                    }
+                    catch (AggregateException ae)
+                    {
+                        Logger.Error("[SftpTransferAgent] Controller task ended with exception.", ae.Flatten());
+                        _exitCode = 1;
+                    }
+
+                    // UIループ終了（これで通常はプロセスが終わる）
+                    PostToUi(() =>
+                    {
+                        try { Application.ExitThread(); } catch { /* noop */ }
+                    });
+
+                    // アイコンだけ消えてプロセスが残る現象を確実に防ぐ
+                    Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ =>
+                    {
+                        Logger.Warning("[SftpTransferAgent] Forcing process exit.");
+                        Environment.Exit(_exitCode);
+                    });
+                }
+                catch (Exception ex)
+                {
+                    Logger.Fatal("[SftpTransferAgent] Shutdown routine crashed.", ex);
+                    Environment.Exit(1);
+                }
+            });
+        }
+
+        private static void SetTrayStatus(TrayStatus status, string shortMessage, bool showBalloon = false)
+        {
+            PostToUi(() =>
+            {
+                if (_notifyIcon == null) return;
+
+                _notifyIcon.Text = $"SftpTransferAgent - {shortMessage}";
+
+                switch (status)
+                {
+                    case TrayStatus.Starting:
+                        _notifyIcon.Icon = SystemIcons.Information;
+                        break;
+                    case TrayStatus.Running:
+                        _notifyIcon.Icon = _iconNormal ?? SystemIcons.Application;
+                        break;
+                    case TrayStatus.Error:
+                        _notifyIcon.Icon = SystemIcons.Error;
+                        break;
+                    case TrayStatus.Stopping:
+                        _notifyIcon.Icon = SystemIcons.Warning;
+                        break;
+                }
+
+                if (showBalloon && SystemInformation.UserInteractive)
+                {
+                    _notifyIcon.BalloonTipTitle = "SftpTransferAgent";
+                    _notifyIcon.BalloonTipText = shortMessage;
+                    _notifyIcon.BalloonTipIcon = (status == TrayStatus.Error) ? ToolTipIcon.Error : ToolTipIcon.Info;
+                    _notifyIcon.ShowBalloonTip(status == TrayStatus.Error ? 5000 : 3000);
+                }
+            });
+        }
+
+        private static void ScheduleStartupNotice()
+        {
+            if (!SystemInformation.UserInteractive) return;
+            if (_notifyIcon == null) return;
+
+            var timer = new System.Windows.Forms.Timer();
+            timer.Interval = 800;
+            timer.Tick += (s, e) =>
+            {
+                timer.Stop();
+                timer.Dispose();
+
+                if (_notifyIcon == null) return;
+                _notifyIcon.BalloonTipTitle = "SftpTransferAgent";
+                _notifyIcon.BalloonTipText = "起動しました。タスクトレイに常駐します。";
+                _notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
+                _notifyIcon.ShowBalloonTip(3000);
+            };
+            timer.Start();
+        }
+
+        private static void PostToUi(Action action)
+        {
+            try
+            {
+                if (action == null) return;
+                var ctx = _uiContext;
+                if (ctx != null) ctx.Post(_ => action(), null);
+                else action();
+            }
+            catch
+            {
+                // UI更新で落とさない
+            }
+        }
+
+        private static void OpenLogFolder()
+        {
+            try
+            {
+                var logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Log");
+                Directory.CreateDirectory(logDir);
+                Process.Start(logDir);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error("[SftpTransferAgent] Failed to open log folder.", ex);
+            }
+        }
+
         private static void Initialize()
         {
             try
             {
-                // コンフィグの初期化
-                // SettingManager.Init(new List<string> { "./Settings/Setting.xml" });
-                // SettingManager.InitWithAppSettings();
-
-                // ApplicationInsights設定
-                // AiInit.ApplicationInsightsSettings();
-
                 Logger.Info("===== Initialize Completed =====");
             }
             catch (Exception ex)
             {
-                // WinExeなので Console.WriteLine は実運用では見えない。ログに寄せる。
                 Logger.Fatal("[SftpTransferAgent] Initialize Error.", ex);
                 throw;
             }
