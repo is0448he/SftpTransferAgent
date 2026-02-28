@@ -17,10 +17,10 @@ namespace SftpTransferAgent.Common
             Info("Logger initialized. LogDir=" + _logDir);
         }
 
-        public static void Info(string message) => Write("INFO", message);
-        public static void Warn(string message) => Write("WARN", message);
+        public static void Info(string message) => Write("Info", message);
+        public static void Warning(string message) => Write("Warning", message);
         public static void Error(string message, Exception ex = null)
-            => Write("ERROR", ex == null ? message : message + Environment.NewLine + ex);
+            => Write("Error", ex == null ? message : message + Environment.NewLine + ex);
 
         private static void Write(string level, string message)
         {

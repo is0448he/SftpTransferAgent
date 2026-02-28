@@ -57,7 +57,7 @@ namespace SftpTransferAgent
                         // システム停止要求があった場合、処理を終了する
                         if (this._onStopCalled == true)
                         {
-                            Logger.Warn($"[SftpTransferAgent] Run SftpTransferAgent's while loop end.");
+                            Logger.Warning($"[SftpTransferAgent] Run SftpTransferAgent's while loop end.");
                             break;
                         }
 
@@ -90,7 +90,7 @@ namespace SftpTransferAgent
         /// </summary>
         public void Stop()
         {
-            Logger.Warn($"[SftpTransferAgent] Stop method called.");
+            Logger.Warning($"[SftpTransferAgent] Stop method called.");
             this._onStopCalled = true;
 
             // 待機を即解除
@@ -108,7 +108,7 @@ namespace SftpTransferAgent
             {
                 if (this._onStopCalled)
                 {
-                    Logger.Warn("[SftpTransferAgent] Stop requested before transfer.");
+                    Logger.Warning("[SftpTransferAgent] Stop requested before transfer.");
                     return;
                 }
 
@@ -127,7 +127,7 @@ namespace SftpTransferAgent
                     }
 
                     // false = 失敗扱い（リトライ対象）
-                    Logger.Warn($"[SftpTransferAgent] ExecuteTransfer returned false.リトライ;{executeCount}回目");
+                    Logger.Warning($"[SftpTransferAgent] ExecuteTransfer returned false.リトライ;{executeCount}回目");
                 }
                 catch (Exception ex)
                 {

@@ -166,7 +166,7 @@ namespace SftpTransferAgent.Sftp
                 if (CommonUtility.IsFileLockedForRead(localCompletePath))
                 {
                     // ロックされていればリトライへ
-                    Logger.Warn($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
+                    Logger.Warning($"[SftpTransferAgent] PUT postponed (file locked). local='{localCompletePath}'");
                     return false; // Controller側のリトライに乗せる
                 }
 
@@ -222,7 +222,7 @@ namespace SftpTransferAgent.Sftp
             // ホストキー検証（現状は設定で持っていないので許可。将来ピン止め推奨）
             client.HostKeyReceived += (s, e) =>
             {
-                Logger.Warn("[SftpTransferAgent] HostKeyReceived (NOT validated; consider pinning).");
+                Logger.Warning("[SftpTransferAgent] HostKeyReceived (NOT validated; consider pinning).");
                 e.CanTrust = true;
             };
 

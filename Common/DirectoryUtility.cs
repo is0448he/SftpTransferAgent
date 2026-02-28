@@ -51,7 +51,7 @@ namespace SftpTransferAgent.Common
             catch (Exception ex)
             {
                 // 「転送自体は成功している」ので致命扱いにしない
-                Logger.Warn($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
+                Logger.Warning($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
             }
         }
 
@@ -71,7 +71,7 @@ namespace SftpTransferAgent.Common
             }
             catch (Exception ex)
             {
-                Logger.Warn($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+                Logger.Warning($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
             }
         }
 
