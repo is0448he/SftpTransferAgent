@@ -35,7 +35,7 @@ namespace SftpTransferAgent
             Logger.InitializeFromAppConfig();
             SetupGlobalExceptionHandlers();
 
-            Logger.Info("[SftpTransferAgent] Main start.");
+            Logger.Info("Main start.");
 
             try
             {
@@ -58,16 +58,16 @@ namespace SftpTransferAgent
                 {
                     try
                     {
-                        Logger.Info("[SftpTransferAgent] Controller.Run start.");
+                        Logger.Info("Controller.Run start.");
                         SetTrayStatus(TrayStatus.Running, "稼働中");
 
                         _controller.Run();
 
-                        Logger.Info("[SftpTransferAgent] Controller.Run end.");
+                        Logger.Info("Controller.Run end.");
                     }
                     catch (Exception ex)
                     {
-                        Logger.Fatal("[SftpTransferAgent] Controller.Run crashed.", ex);
+                        Logger.Fatal("Controller.Run crashed.", ex);
                         SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
 
                         // 中身が死んだまま常駐しないよう終了へ
@@ -80,7 +80,7 @@ namespace SftpTransferAgent
                 {
                     try
                     {
-                        Logger.Info("[SftpTransferAgent] ApplicationExit called.");
+                        Logger.Info("ApplicationExit called.");
 
                         if (_notifyIcon != null)
                         {
@@ -97,7 +97,7 @@ namespace SftpTransferAgent
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error("[SftpTransferAgent] Error on ApplicationExit.", ex);
+                        Logger.Error("Error on ApplicationExit.", ex);
                     }
                 };
 
@@ -105,12 +105,12 @@ namespace SftpTransferAgent
             }
             catch (Exception ex)
             {
-                Logger.Fatal("[SftpTransferAgent] Unhandled exception in Main.", ex);
+                Logger.Fatal("Unhandled exception in Main.", ex);
                 BeginShutdown("Unhandled exception in Main", exitCode: 1);
             }
             finally
             {
-                Logger.Info("[SftpTransferAgent] Main end.");
+                Logger.Info("Main end.");
             }
         }
 
@@ -119,21 +119,21 @@ namespace SftpTransferAgent
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += (s, e) =>
             {
-                Logger.Fatal("[SftpTransferAgent] UI ThreadException occurred.", e.Exception);
+                Logger.Fatal("UI ThreadException occurred.", e.Exception);
                 SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
                 BeginShutdown("UI ThreadException", exitCode: 1);
             };
 
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
-                Logger.Fatal("[SftpTransferAgent] AppDomain UnhandledException occurred.", e.ExceptionObject as Exception);
+                Logger.Fatal("AppDomain UnhandledException occurred.", e.ExceptionObject as Exception);
                 SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
                 BeginShutdown("AppDomain UnhandledException", exitCode: 1);
             };
 
             TaskScheduler.UnobservedTaskException += (s, e) =>
             {
-                Logger.Error("[SftpTransferAgent] UnobservedTaskException occurred.", e.Exception);
+                Logger.Error("UnobservedTaskException occurred.", e.Exception);
                 e.SetObserved();
                 SetTrayStatus(TrayStatus.Error, "エラー（ログ確認）", showBalloon: true);
                 BeginShutdown("UnobservedTaskException", exitCode: 1);
@@ -161,7 +161,7 @@ namespace SftpTransferAgent
 
             menu.Items.Add("ログフォルダを開く", null, (s, e) =>
             {
-                Logger.Info("[SftpTransferAgent] Open log folder clicked.");
+                Logger.Info("Open log folder clicked.");
                 OpenLogFolder();
             });
 
@@ -169,7 +169,7 @@ namespace SftpTransferAgent
 
             menu.Items.Add("終了", null, (s, e) =>
             {
-                Logger.Info("[SftpTransferAgent] Exit menu clicked.");
+                Logger.Info("Exit menu clicked.");
                 BeginShutdown("User requested exit", exitCode: 0);
             });
 
@@ -186,7 +186,7 @@ namespace SftpTransferAgent
 
             _exitCode = exitCode;
 
-            Logger.Warning($"[SftpTransferAgent] Shutdown requested. reason={reason}");
+            Logger.Warning($"Shutdown requested. reason={reason}");
             SetTrayStatus(TrayStatus.Stopping, "停止中", showBalloon: false);
 
             // メニュー無効化（連打防止）
@@ -212,7 +212,7 @@ namespace SftpTransferAgent
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error("[SftpTransferAgent] Error on Controller.Stop.", ex);
+                        Logger.Error("Error on Controller.Stop.", ex);
                         _exitCode = 1;
                     }
 
@@ -222,12 +222,12 @@ namespace SftpTransferAgent
                         if (_controllerTask != null)
                         {
                             if (!_controllerTask.Wait(TimeSpan.FromSeconds(10)))
-                                Logger.Warning("[SftpTransferAgent] Controller task did not stop within 10 seconds.");
+                                Logger.Warning("Controller task did not stop within 10 seconds.");
                         }
                     }
                     catch (AggregateException ae)
                     {
-                        Logger.Error("[SftpTransferAgent] Controller task ended with exception.", ae.Flatten());
+                        Logger.Error("Controller task ended with exception.", ae.Flatten());
                         _exitCode = 1;
                     }
 
@@ -240,13 +240,13 @@ namespace SftpTransferAgent
                     // アイコンだけ消えてプロセスが残る現象を確実に防ぐ
                     Task.Delay(TimeSpan.FromSeconds(3)).ContinueWith(_ =>
                     {
-                        Logger.Warning("[SftpTransferAgent] Forcing process exit.");
+                        Logger.Warning("Forcing process exit.");
                         Environment.Exit(_exitCode);
                     });
                 }
                 catch (Exception ex)
                 {
-                    Logger.Fatal("[SftpTransferAgent] Shutdown routine crashed.", ex);
+                    Logger.Fatal("Shutdown routine crashed.", ex);
                     Environment.Exit(1);
                 }
             });
@@ -332,7 +332,7 @@ namespace SftpTransferAgent
             }
             catch (Exception ex)
             {
-                Logger.Error("[SftpTransferAgent] Failed to open log folder.", ex);
+                Logger.Error("Failed to open log folder.", ex);
             }
         }
 
@@ -344,7 +344,7 @@ namespace SftpTransferAgent
             }
             catch (Exception ex)
             {
-                Logger.Fatal("[SftpTransferAgent] Initialize Error.", ex);
+                Logger.Fatal("Initialize Error.", ex);
                 throw;
             }
         }

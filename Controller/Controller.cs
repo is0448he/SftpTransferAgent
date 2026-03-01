@@ -47,7 +47,7 @@ namespace SftpTransferAgent
         /// </summary>
         public void Run()
         {
-            Logger.Info($"[SftpTransferAgent] Run method called.");
+            Logger.Info($"Run method called.");
 
             try
             {
@@ -58,7 +58,7 @@ namespace SftpTransferAgent
                         // システム停止要求があった場合、処理を終了する
                         if (this._onStopCalled == true)
                         {
-                            Logger.Warning($"[SftpTransferAgent] Run SftpTransferAgent's while loop end.");
+                            Logger.Warning($"Run SftpTransferAgent's while loop end.");
                             break;
                         }
 
@@ -71,17 +71,17 @@ namespace SftpTransferAgent
                 }
                 else
                 {
-                    Logger.Info("[SftpTransferAgent] Polling disabled. Execute once and exit.");
+                    Logger.Info("Polling disabled. Execute once and exit.");
                     this.ExecuteTransfer();
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error("[SftpTransferAgent] Unhandled exception in Run.", ex);
+                Logger.Error("Unhandled exception in Run.", ex);
             }
             finally
             {
-                Logger.Info("[SftpTransferAgent] Run method end.");
+                Logger.Info("Run method end.");
                 Application.Exit();
             }
         }
@@ -91,7 +91,7 @@ namespace SftpTransferAgent
         /// </summary>
         public void Stop()
         {
-            Logger.Warning($"[SftpTransferAgent] Stop method called.");
+            Logger.Warning($"Stop method called.");
             this._onStopCalled = true;
 
             // 待機を即解除
@@ -109,37 +109,37 @@ namespace SftpTransferAgent
             {
                 if (this._onStopCalled)
                 {
-                    Logger.Warning("[SftpTransferAgent] Stop requested before transfer.");
+                    Logger.Warning("Stop requested before transfer.");
                     return;
                 }
 
                 try
                 {
                     executeCount++;
-                    Logger.Info($"[SftpTransferAgent] ExecuteTransfer start.");
+                    Logger.Info($"ExecuteTransfer start.");
 
                     // 結果だけ受け取る
                     bool ok = _sftpService.Execute();
 
                     if (ok)
                     {
-                        Logger.Info("[SftpTransferAgent] ExecuteTransfer success.");
+                        Logger.Info("ExecuteTransfer success.");
                         return;
                     }
 
                     // false = 失敗扱い（リトライ対象）
-                    Logger.Warning($"[SftpTransferAgent] ExecuteTransfer returned false.リトライ;{executeCount}回目");
+                    Logger.Warning($"ExecuteTransfer returned false.リトライ;{executeCount}回目");
                 }
                 catch (Exception ex)
                 {
                     // 例外も失敗扱い（リトライ対象）
-                    Logger.Error($"[SftpTransferAgent] ExecuteTransfer exception. リトライ;{executeCount}回目", ex);
+                    Logger.Error($"ExecuteTransfer exception. リトライ;{executeCount}回目", ex);
                 }
 
                 // リトライ判定
                 if (executeCount >= CommonSettingValues.Current.RetryMaxCount)
                 {
-                    Logger.Error($"[SftpTransferAgent] Retry exceeded. max={CommonSettingValues.Current.RetryMaxCount}", null);
+                    Logger.Error($"Retry exceeded. max={CommonSettingValues.Current.RetryMaxCount}", null);
                     return;
                 }
                 

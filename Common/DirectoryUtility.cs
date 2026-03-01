@@ -46,13 +46,13 @@ namespace SftpTransferAgent.Common
                 if (client.Exists(remotePath))
                 {
                     client.DeleteFile(remotePath);
-                    Logger.Info($"[SftpTransferAgent] RemoteFile deleted. remote='{remotePath}'");
+                    Logger.Info($"RemoteFile deleted. remote='{remotePath}'");
                 }
             }
             catch (Exception ex)
             {
                 // 「転送自体は成功している」ので致命扱いにしない
-                Logger.Warning($"[SftpTransferAgent] RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
+                Logger.Warning($"RemoteFile delete failed. remote='{remotePath}' ex='{ex.GetType().Name}'");
             }
         }
 
@@ -67,12 +67,12 @@ namespace SftpTransferAgent.Common
                 if (File.Exists(localPath))
                 {
                     File.Delete(localPath);
-                    Logger.Info($"[SftpTransferAgent] LocalFile deleted. local='{localPath}'");
+                    Logger.Info($"LocalFile deleted. local='{localPath}'");
                 }
             }
             catch (Exception ex)
             {
-                Logger.Warning($"[SftpTransferAgent] LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
+                Logger.Warning($"LocalFile delete failed. local='{localPath}' ex='{ex.GetType().Name}'");
             }
         }
 
