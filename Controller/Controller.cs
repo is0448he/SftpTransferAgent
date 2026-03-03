@@ -98,8 +98,8 @@ namespace SftpTransferAgent
             this._stopSignal.Set();
         }
 
-        // <summary>
-        /// 送受信処理（1回分）をリトライ付きで実行
+        /// <summary>
+        /// 送受信処理(1回分)をリトライ付きで実行
         /// </summary>
         private void ExecuteTransfer()
         {
@@ -127,12 +127,12 @@ namespace SftpTransferAgent
                         return;
                     }
 
-                    // false = 失敗扱い（リトライ対象）
+                    // false = 失敗扱い(リトライ対象)
                     Logger.Warning($"ExecuteTransfer returned false.リトライ;{executeCount}回目");
                 }
                 catch (Exception ex)
                 {
-                    // 例外も失敗扱い（リトライ対象）
+                    // 例外も失敗扱い(リトライ対象)
                     Logger.Error($"ExecuteTransfer exception. リトライ;{executeCount}回目", ex);
                 }
 
